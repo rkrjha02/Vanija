@@ -76,6 +76,8 @@ async def call_llm(messages: list[dict], tools: list[dict]) -> dict:
                     continue
                 raise last_error
 
+            if response.status_code >= 400 and response.status_code != 429:
+                logger.error("LLM HTTP %d: %s", response.status_code, response.text[:500])
             response.raise_for_status()
             data = response.json()
             return _parse_response(data)
