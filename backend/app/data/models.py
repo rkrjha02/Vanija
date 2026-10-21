@@ -8,6 +8,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -61,6 +62,41 @@ class Conversation(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class Cart(Base):
+    __tablename__ = "carts"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'ordered')", name="ck_cart_status"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("customers.id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class CartItem(Base):
+    __tablename__ = "cart_items"
+    __table_args__ = (
+        UniqueConstraint("cart_id", "product_id", name="uq_cart_item_product"),
+        CheckConstraint("quantity >= 1", name="ck_cart_item_quantity_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cart_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("carts.id"), nullable=False
+    )
+    product_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("products.id"), nullable=False
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class Message(Base):
