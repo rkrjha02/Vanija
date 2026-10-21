@@ -1,4 +1,4 @@
-from app.tools.product_tools import TOOL_HANDLERS
+from app.tools.registry import ALL_HANDLERS as TOOL_HANDLERS
 
 
 def validate_tool_call(name: str, arguments: dict) -> tuple[dict | None, str | None]:

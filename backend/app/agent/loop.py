@@ -17,7 +17,8 @@ from app.providers.openai_compat import (
     call_llm,
 )
 from app.tools.definitions import get_tool_definitions
-from app.tools.product_tools import TOOL_HANDLERS, build_search_label
+from app.tools.product_tools import build_search_label
+from app.tools.registry import ALL_HANDLERS as TOOL_HANDLERS
 
 logger = logging.getLogger(__name__)
 
