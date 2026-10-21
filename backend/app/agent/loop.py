@@ -91,7 +91,7 @@ async def run_agent_loop(
 
             try:
                 handler = TOOL_HANDLERS[tc["name"]]["handle"]
-                tool_result = await handler(session, cleaned_args)
+                tool_result = await handler(session, cleaned_args, customer_id)
             except Exception as e:
                 logger.error("Tool error in %s: %s", tc["name"], e)
                 tool_result = {"status": "error", "message": "Something went wrong. Please try again."}
@@ -144,9 +144,19 @@ def _format_for_llm(turn_messages: list[dict]) -> list[dict]:
     return formatted
 
 
+CART_TOOLS = {"add_to_cart", "update_cart_item", "view_cart"}
+
+
 def _build_card(tool_name: str, result: dict) -> dict | None:
     if tool_name in ("search_products", "get_product_details"):
         return {"type": "products", "items": result.get("products", [])}
+    if tool_name in CART_TOOLS:
+        return {
+            "type": "cart",
+            "items": result.get("items", []),
+            "cart_total": result.get("cart_total", 0),
+            "has_problems": result.get("has_problems", False),
+        }
     return None
 
 

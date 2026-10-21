@@ -50,7 +50,7 @@ def validate_get_product_details(args: dict) -> str | None:
     return None
 
 
-async def handle_search_products(session: AsyncSession, args: dict) -> dict:
+async def handle_search_products(session: AsyncSession, args: dict, customer_id: str = "") -> dict:
     result = await db_search_products(
         session=session,
         category=args["category"],
@@ -72,7 +72,7 @@ async def handle_search_products(session: AsyncSession, args: dict) -> dict:
     }
 
 
-async def handle_get_product_details(session: AsyncSession, args: dict) -> dict:
+async def handle_get_product_details(session: AsyncSession, args: dict, customer_id: str = "") -> dict:
     details = await db_get_product_details(session, args["product_ids"])
     return {"status": "success", "products": details}
 

@@ -75,4 +75,69 @@ def get_tool_definitions() -> list[dict]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "add_to_cart",
+                "description": (
+                    "Add a product to the customer's cart. "
+                    "Use when the customer says 'add', 'I want', 'I'll take', or similar. "
+                    "If the product is already in the cart, the quantity increases."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {
+                            "type": "string",
+                            "description": "The product ID to add.",
+                        },
+                        "quantity": {
+                            "type": "integer",
+                            "description": "How many to add, 1 to 10. Default is 1.",
+                        },
+                    },
+                    "required": ["product_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "update_cart_item",
+                "description": (
+                    "Change the quantity of a product already in the cart. "
+                    "The quantity is the NEW TOTAL, not an amount to add or remove. "
+                    "Set quantity to 0 to remove the item entirely. "
+                    "Use when the customer says 'make it 3', 'change to 2', 'remove the phone', etc."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {
+                            "type": "string",
+                            "description": "The product ID to update.",
+                        },
+                        "quantity": {
+                            "type": "integer",
+                            "description": "New total quantity, 0 to 10. Use 0 to remove the item.",
+                        },
+                    },
+                    "required": ["product_id", "quantity"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "view_cart",
+                "description": (
+                    "Show the customer's current cart contents with prices and totals. "
+                    "Use when the customer asks 'what's in my cart?', 'show my cart', etc."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
     ]
