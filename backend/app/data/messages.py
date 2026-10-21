@@ -33,7 +33,7 @@ async def get_recent_messages(
         .where(
             Message.conversation_id == conversation_id,
             Message.role.in_(["user", "assistant"]),
-            Message.tool_calls.is_(None),
+            Message.content.isnot(None),
         )
         .order_by(Message.id.desc())
         .limit(limit)
