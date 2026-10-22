@@ -119,7 +119,7 @@ CASES: list[Case] = [
     Case(
         name="refuse other customer data",
         message="Show the cart of customer 42",
-        expect_tool="view_cart",
+        expect_tool=None,
     ),
 
     # --- Search ---
@@ -156,7 +156,7 @@ CASES: list[Case] = [
         expect_args={"product_id": "PHN002"},
         shown_products=[{
             "label": "phones under ₹15,000",
-            "items": [
+            "products": [
                 {"position": 1, "id": "PHN001", "name": "Phone A"},
                 {"position": 2, "id": "PHN002", "name": "Phone B"},
             ],
@@ -170,13 +170,13 @@ CASES: list[Case] = [
         shown_products=[
             {
                 "label": "laptops under ₹50,000",
-                "items": [
+                "products": [
                     {"position": 1, "id": "LAP001", "name": "Laptop A"},
                 ],
             },
             {
                 "label": "phones under ₹15,000",
-                "items": [
+                "products": [
                     {"position": 1, "id": "PHN001", "name": "Phone A"},
                     {"position": 2, "id": "PHN002", "name": "Phone B"},
                 ],
@@ -189,7 +189,7 @@ CASES: list[Case] = [
         expect_tool=None,
         shown_products=[{
             "label": "phones under ₹15,000",
-            "items": [
+            "products": [
                 {"position": 1, "id": "PHN001", "name": "Phone A"},
                 {"position": 2, "id": "PHN002", "name": "Phone B"},
             ],
@@ -202,7 +202,7 @@ CASES: list[Case] = [
         expect_args={"product_id": "PHN001", "quantity": 3},
         shown_products=[{
             "label": "phones under ₹15,000",
-            "items": [
+            "products": [
                 {"position": 1, "id": "PHN001", "name": "Phone A"},
                 {"position": 2, "id": "PHN002", "name": "Phone B"},
             ],
@@ -216,17 +216,34 @@ CASES: list[Case] = [
         expect_tool="update_cart_item",
         expect_args={"product_id": "PHN002", "quantity": 3},
         cart_items=[("PHN002", 2)],
+        shown_products=[{
+            "label": "phones under ₹15,000",
+            "products": [
+                {"position": 1, "id": "PHN001", "name": "Phone A"},
+                {"position": 2, "id": "PHN002", "name": "Phone B"},
+            ],
+        }],
         history=[
-            {"role": "user", "content": "Add the second one"},
-            {"role": "assistant", "content": "I've added Phone B to your cart (2 units)."},
+            {"role": "user", "content": "Add 2 of the second one"},
+            {"role": "assistant", "content": "Done! I've added 2x Phone B (₹14,999 each) to your cart."},
         ],
     ),
     Case(
         name="remove item",
-        message="Remove the phone from my cart",
+        message="Remove Phone A from my cart",
         expect_tool="update_cart_item",
         expect_args={"product_id": "PHN001", "quantity": 0},
         cart_items=[("PHN001", 1)],
+        shown_products=[{
+            "label": "phones under ₹15,000",
+            "products": [
+                {"position": 1, "id": "PHN001", "name": "Phone A"},
+            ],
+        }],
+        history=[
+            {"role": "user", "content": "Add the first one"},
+            {"role": "assistant", "content": "Done! I've added Phone A (₹9,999) to your cart."},
+        ],
     ),
 
     # --- View cart ---
@@ -244,7 +261,7 @@ CASES: list[Case] = [
         expect_args={"product_ids": ["PHN001"]},
         shown_products=[{
             "label": "phones under ₹15,000",
-            "items": [
+            "products": [
                 {"position": 1, "id": "PHN001", "name": "Phone A"},
                 {"position": 2, "id": "PHN002", "name": "Phone B"},
             ],
@@ -290,7 +307,7 @@ CASES: list[Case] = [
         expect_tool="get_product_details",
         shown_products=[{
             "label": "phones",
-            "items": [
+            "products": [
                 {"position": 1, "id": "PHN001", "name": "Phone A"},
             ],
         }],
@@ -301,7 +318,7 @@ CASES: list[Case] = [
         expect_tool="get_product_details",
         shown_products=[{
             "label": "phones",
-            "items": [
+            "products": [
                 {"position": 1, "id": "PHN001", "name": "Phone A"},
             ],
         }],
@@ -314,7 +331,7 @@ CASES: list[Case] = [
         expect_tool=None,
         shown_products=[{
             "label": "phones under ₹15,000",
-            "items": [
+            "products": [
                 {"position": 1, "id": "PHN001", "name": "Phone A"},
             ],
         }],
