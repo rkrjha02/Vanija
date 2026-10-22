@@ -144,11 +144,11 @@ electronics-sales-agent/
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/customers` | POST | Create a new customer (returns a random ID) |
-| `/api/chat` | POST | Send a message, get the agent's reply + cards |
-| `/api/history` | GET | Load recent messages (text only) |
-| `/api/orders/confirm` | POST | Confirm a pending order (no LLM call) |
-| `/api/orders/cancel` | POST | Confirm order cancellation (no LLM call) |
+| `/customers` | POST | Create a new customer (returns a random ID) |
+| `/chat` | POST | Send a message, get the agent's reply + cards |
+| `/history/{customer_id}` | GET | Load recent messages (text only) |
+| `/orders/confirm` | POST | Confirm a pending order (no LLM call) |
+| `/orders/cancel` | POST | Confirm order cancellation (no LLM call) |
 
 ## Design decisions
 
