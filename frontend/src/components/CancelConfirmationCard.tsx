@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { confirmCancel } from '../api'
 import { formatRupees } from '../format'
 import type { ButtonResult, CancelConfirmationCard as CancelConfirmationData } from '../types'
+import { AlertIcon } from './Icons'
 
 interface Props {
   card: CancelConfirmationData
@@ -26,23 +27,32 @@ export function CancelConfirmationCard({ card, customerId, onResult, onError }: 
 
   return (
     <div className="card">
-      <div className="card-title">Cancel order #{card.order_id}?</div>
+      <div className="card-head">
+        <div className="card-head-icon bad">
+          <AlertIcon size={18} />
+        </div>
+        <div>
+          <div className="card-title">Cancel order #{card.order_id}?</div>
+          <div className="card-meta">A cancelled order cannot be restored.</div>
+        </div>
+      </div>
       <ul className="line-list">
         {card.items.map((item) => (
           <li key={item.name} className="line">
-            <div className="line-main">
-              <span>{item.name}</span>
-              <span>× {item.quantity}</span>
+            <div className="line-info">
+              <div className="line-name">{item.name}</div>
             </div>
+            <div className="line-qty">× {item.quantity}</div>
           </li>
         ))}
       </ul>
       <div className="total-row">
         <span>Total</span>
-        <span className="price">{formatRupees(card.total)}</span>
+        <span className="total-amount">{formatRupees(card.total)}</span>
       </div>
-      <div className="buttons">
-        <button type="button" className="danger" disabled={tapped} onClick={cancel}>
+      <div className="card-actions">
+        <button type="button" className="btn btn-danger btn-block" disabled={tapped} onClick={cancel}>
+          {tapped && <span className="spinner" />}
           {tapped ? 'Cancelling…' : 'Yes, cancel order'}
         </button>
       </div>

@@ -5,7 +5,14 @@ import { CardView } from './CardView'
 
 function render(card: Card): string {
   return renderToStaticMarkup(
-    <CardView card={card} customerId="c1" onButtonResult={() => {}} onButtonError={() => {}} />,
+    <CardView
+      card={card}
+      customerId="c1"
+      busy={false}
+      onSendMessage={() => {}}
+      onButtonResult={() => {}}
+      onButtonError={() => {}}
+    />,
   )
 }
 
@@ -32,6 +39,30 @@ describe('products card', () => {
     expect(html).toContain('4 GB RAM')
     expect(html).toContain('Out of stock')
   })
+
+  it('offers Add and Details, and disables Add when out of stock', () => {
+    const html = render({
+      type: 'products',
+      items: [{ id: 'PHN008', position: 1, name: 'Phone H', category: 'phone', price: 69999, in_stock: false, key_specs: {} }],
+    })
+    expect(html).toContain('Details')
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>.*?Add<\/button>/)
+  })
+
+  it('shows the detail layout when full specs are present', () => {
+    const html = render({
+      type: 'products',
+      items: [
+        { id: 'LAP001', name: 'Laptop A', category: 'laptop', price: 45999, in_stock: true, units_left: 3,
+          description: 'A work laptop', specs: { ram_gb: 16, processor: 'Intel i5' } },
+      ],
+    })
+    expect(html).toContain('product-detail')
+    expect(html).toContain('A work laptop')
+    expect(html).toContain('Intel i5')
+    expect(html).toContain('Only 3 left')
+    expect(html).toContain('Add to cart')
+  })
 })
 
 describe('cart card', () => {
@@ -48,6 +79,17 @@ describe('cart card', () => {
     expect(html).toContain('₹44,997')
     expect(html).toContain('Only 2 left')
     expect(html).toContain('need attention')
+    expect(html).not.toContain('Place order')
+  })
+
+  it('offers Place order when the cart has no problems', () => {
+    const html = render({
+      type: 'cart',
+      items: [{ product_id: 'PHN001', name: 'Phone A', quantity: 1, unit_price: 9999, line_total: 9999, problem: '' }],
+      cart_total: 9999,
+      has_problems: false,
+    })
+    expect(html).toContain('Place order')
   })
 })
 
