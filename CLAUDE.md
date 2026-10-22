@@ -1,6 +1,7 @@
 # Project instructions: AI Conversational Sales Agent for Electronics
 
 The full design is in @docs/design.md. Read it at the start of every session. Everything in it is LOCKED for Phase 1.
+Phase 2, part 1 (policy questions) is in @docs/design-rag.md. Read it too. Where it conflicts with design.md, design-rag.md wins.
 
 ## Who I am working with
 - A beginner in AI engineering with basic Python and good SQL knowledge, who wants to LEARN while building.
