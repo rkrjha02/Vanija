@@ -5,11 +5,13 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -70,6 +72,12 @@ class Cart(Base):
         CheckConstraint(
             "status IN ('active', 'ordered')", name="ck_cart_status"
         ),
+        Index(
+            "uq_cart_one_active_per_customer",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -97,6 +105,113 @@ class CartItem(Base):
         Text, ForeignKey("products.id"), nullable=False
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class Address(Base):
+    __tablename__ = "addresses"
+    __table_args__ = (
+        CheckConstraint("pincode ~ '^[0-9]{6}$'", name="ck_address_pincode"),
+        CheckConstraint("phone ~ '^[0-9]{10}$'", name="ck_address_phone"),
+        Index(
+            "uq_address_one_default_per_customer",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("is_default"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("customers.id"), nullable=False
+    )
+    recipient_name: Mapped[str] = mapped_column(Text, nullable=False)
+    phone: Mapped[str] = mapped_column(Text, nullable=False)
+    address_line: Mapped[str] = mapped_column(Text, nullable=False)
+    city: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(Text, nullable=False)
+    pincode: Mapped[str] = mapped_column(Text, nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Order(Base):
+    __tablename__ = "orders"
+    __table_args__ = (
+        CheckConstraint("status IN ('placed', 'cancelled')", name="ck_order_status"),
+        CheckConstraint("payment_method = 'cod'", name="ck_order_payment_cod"),
+        CheckConstraint("total_amount >= 0", name="ck_order_total_not_negative"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("customers.id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="placed")
+    total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    payment_method: Mapped[str] = mapped_column(Text, nullable=False, default="cod")
+    delivery_name: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_phone: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_address_line: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_city: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_state: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_pincode: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    __table_args__ = (
+        CheckConstraint("quantity >= 1", name="ck_order_item_quantity_positive"),
+        CheckConstraint("unit_price >= 0", name="ck_order_item_price_not_negative"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("orders.id"), nullable=False
+    )
+    product_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("products.id"), nullable=False
+    )
+    product_name: Mapped[str] = mapped_column(Text, nullable=False)
+    unit_price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class PendingConfirmation(Base):
+    __tablename__ = "pending_confirmations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('waiting', 'used', 'expired')", name="ck_pending_status"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("customers.id"), nullable=False
+    )
+    cart_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("carts.id"), nullable=False
+    )
+    total_shown: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    delivery_name: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_phone: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_address_line: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_city: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_state: Mapped[str] = mapped_column(Text, nullable=False)
+    delivery_pincode: Mapped[str] = mapped_column(Text, nullable=False)
+    is_new_address: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="waiting")
+    order_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("orders.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Message(Base):
