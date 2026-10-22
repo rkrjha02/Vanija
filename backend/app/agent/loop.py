@@ -97,6 +97,11 @@ async def run_agent_loop(
                 await session.rollback()
                 tool_result = {"status": "error", "message": "Something went wrong. Please try again."}
 
+            card = _build_card(tc["name"], tool_result)
+            if card:
+                cards.append(card)
+            tool_result.pop("_private", None)
+
             await save_message(
                 session, conv_id, turn_id, "tool",
                 content=json.dumps(tool_result),
@@ -109,11 +114,6 @@ async def run_agent_loop(
                     shown_products, tool_result["products"], label
                 )
                 await update_shown_products(session, conv_id, shown_products)
-
-            if tool_result.get("status") == "success":
-                card = _build_card(tc["name"], tool_result)
-                if card:
-                    cards.append(card)
 
     return await _finish_with_fixed_message(session, conv_id, turn_id, FIXED_ROUND_LIMIT_MSG, cards)
 
@@ -149,16 +149,37 @@ CART_TOOLS = {"add_to_cart", "update_cart_item", "view_cart"}
 
 
 def _build_card(tool_name: str, result: dict) -> dict | None:
-    if tool_name in ("search_products", "get_product_details"):
+    status = result.get("status")
+    if tool_name in ("search_products", "get_product_details") and status == "success":
         return {"type": "products", "items": result.get("products", [])}
-    if tool_name in CART_TOOLS:
+    if tool_name in CART_TOOLS and status == "success":
         return {
             "type": "cart",
             "items": result.get("items", []),
             "cart_total": result.get("cart_total", 0),
             "has_problems": result.get("has_problems", False),
         }
+    if tool_name == "place_order" and status == "confirmation_required":
+        return build_order_confirmation_card(result)
+    if tool_name == "cancel_order" and status == "confirmation_required":
+        return {
+            "type": "cancel_confirmation",
+            "order_id": result["order_id"],
+            "items": result["items"],
+            "total": result["total"],
+        }
     return None
+
+
+def build_order_confirmation_card(result: dict) -> dict:
+    private = result["_private"]
+    return {
+        "type": "order_confirmation",
+        "summary": result["summary"],
+        "pending_id": private["pending_id"],
+        "expires_at": private["expires_at"],
+        "show_save_address": private["is_new_address"],
+    }
 
 
 async def _finish_with_fixed_message(
