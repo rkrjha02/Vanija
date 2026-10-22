@@ -65,3 +65,14 @@ async def seeded_session(session):
         merged = await session.merge(product)
     await session.commit()
     yield session
+
+
+@pytest.fixture
+async def order_session(session):
+    # Fresh stock and price every test, because placing orders changes them.
+    await session.merge(Product(id="ORD001", name="Order Phone", category="phone", brand="X",
+                                price=1000, stock=5, description="", is_active=True, specs={}))
+    await session.merge(Product(id="ORD002", name="Order Laptop", category="laptop", brand="Y",
+                                price=30000, stock=3, description="", is_active=True, specs={}))
+    await session.commit()
+    yield session
