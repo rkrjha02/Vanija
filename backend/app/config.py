@@ -33,5 +33,19 @@ class Settings(BaseSettings):
     # Search
     default_search_limit: int = 5
 
+    # Embeddings (policy search)
+    gemini_api_key: str = ""
+    embedding_provider: str = "gemini"
+    embedding_model: str = "gemini-embedding-2"
+    embedding_dimensions: int = 768
+    embedding_requests_per_minute: int = 30
+
+    # Policies
+    policies_dir: Path = BACKEND_DIR.parent / "policies"
+    max_chunk_chars: int = 1500
+    policy_results_limit: int = 3
+    policy_min_similarity: float = 0.5
+    policy_question_max_length: int = 300
+
 
 settings = Settings()

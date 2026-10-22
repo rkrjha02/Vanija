@@ -13,8 +13,11 @@ from sqlalchemy import (
     func,
     text,
 )
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.config import settings
 
 
 class Base(DeclarativeBase):
@@ -233,4 +236,34 @@ class Message(Base):
     tool_call_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PolicyDocument(Base):
+    __tablename__ = "policy_documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    source_file: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PolicyChunk(Base):
+    __tablename__ = "policy_chunks"
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index", name="uq_policy_chunk_index"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("policy_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    section: Mapped[str] = mapped_column(Text, nullable=False)
+    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list] = mapped_column(
+        Vector(settings.embedding_dimensions), nullable=False
     )
