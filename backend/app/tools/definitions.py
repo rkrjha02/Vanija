@@ -140,4 +140,63 @@ def get_tool_definitions() -> list[dict]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "view_saved_addresses",
+                "description": (
+                    "List the customer's saved delivery addresses. "
+                    "Always call this before place_order."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "place_order",
+                "description": (
+                    "Prepare a Cash on Delivery order from the cart. It does NOT place the order: "
+                    "it shows the customer a Confirm button. "
+                    "Send either address_id of a saved address, or all six new address fields, never both."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "address_id": {
+                            "type": "integer",
+                            "description": "ID of a saved address from view_saved_addresses.",
+                        },
+                        "delivery_name": {"type": "string", "description": "Recipient's full name."},
+                        "delivery_phone": {"type": "string", "description": "10-digit phone number."},
+                        "address_line": {"type": "string", "description": "House, street, area."},
+                        "city": {"type": "string"},
+                        "state": {"type": "string"},
+                        "pincode": {"type": "string", "description": "6-digit pincode."},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "cancel_order",
+                "description": (
+                    "Prepare cancelling a placed order. It does NOT cancel: it shows the customer a "
+                    "'Yes, cancel order' button. Leave order_id out if the customer has only one order."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "order_id": {
+                            "type": "integer",
+                            "description": "The order to cancel, if the customer named one.",
+                        },
+                    },
+                },
+            },
+        },
     ]
