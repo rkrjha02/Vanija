@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.loop import run_agent_loop
 from app.data.customers import get_customer
 from app.data.database import get_db
+from app.data.locking import customer_lock
 
 router = APIRouter()
 
@@ -23,5 +24,6 @@ async def send_message(req: ChatRequest, session: AsyncSession = Depends(get_db)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    result = await run_agent_loop(session, req.customer_id, req.message.strip())
+    async with customer_lock(req.customer_id):
+        result = await run_agent_loop(session, req.customer_id, req.message.strip())
     return result

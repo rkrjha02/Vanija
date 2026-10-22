@@ -9,7 +9,6 @@ from app.agent.state_block import format_state_block, update_state_block
 from app.agent.validation import validate_tool_call
 from app.config import settings
 from app.data.conversations import get_or_create_conversation, update_shown_products
-from app.data.locking import acquire_customer_lock
 from app.data.messages import get_recent_messages, get_turn_messages, save_message
 from app.providers.openai_compat import (
     LLMRateLimitError,
@@ -34,7 +33,6 @@ async def run_agent_loop(
     customer_id: str,
     message_text: str,
 ) -> dict:
-    await acquire_customer_lock(session, customer_id)
     conversation = await get_or_create_conversation(session, customer_id)
     conv_id = conversation["id"]
     shown_products = conversation["shown_products"]
@@ -96,6 +94,7 @@ async def run_agent_loop(
                 tool_result = await handler(session, cleaned_args, customer_id)
             except Exception as e:
                 logger.error("Tool error in %s: %s", tc["name"], e)
+                await session.rollback()
                 tool_result = {"status": "error", "message": "Something went wrong. Please try again."}
 
             await save_message(
