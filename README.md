@@ -64,7 +64,12 @@ alembic upgrade head
 
 ### 4. Seed products
 
-The test database is seeded automatically by the test suite. For the development database, use the Alembic seed migration or insert products manually.
+The test database is seeded automatically by the test suite. For the development database, run the seed script once:
+
+```powershell
+cd backend
+python seed_data.py
+```
 
 ### 5. Frontend
 
@@ -80,8 +85,10 @@ npm install
 ```powershell
 cd backend
 .venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload
+python run.py
 ```
+
+Use `run.py` rather than calling `uvicorn` directly: on Windows it switches Python to the event loop that psycopg needs, otherwise startup fails with "Psycopg cannot use the 'ProactorEventLoop'".
 
 The API runs at `http://localhost:8000`. Open `http://localhost:8000/docs` for the Swagger UI.
 
