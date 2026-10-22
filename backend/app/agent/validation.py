@@ -5,6 +5,7 @@ def validate_tool_call(name: str, arguments: dict) -> tuple[dict | None, str | N
     if name not in TOOL_HANDLERS:
         return None, f"Unknown tool: {name}"
 
+    arguments = {key: value for key, value in arguments.items() if value is not None}
     arguments.pop("customer_id", None)
 
     validator = TOOL_HANDLERS[name]["validate"]

@@ -2,6 +2,27 @@ VALID_CATEGORIES: list[str] = []
 
 
 def get_tool_definitions() -> list[dict]:
+    # The LLM often sends null for an optional field it isn't using. Groq checks calls
+    # against this schema and rejects null for a plain "integer"/"string" field.
+    tools = _tool_definitions()
+    for tool in tools:
+        params = tool["function"]["parameters"]
+        required = set(params.get("required", []))
+        for name, prop in params["properties"].items():
+            if name not in required:
+                params["properties"][name] = _nullable(prop)
+    return tools
+
+
+def _nullable(prop: dict) -> dict:
+    prop = dict(prop)
+    prop["type"] = [prop["type"], "null"]
+    if "enum" in prop:
+        prop["enum"] = [*prop["enum"], None]
+    return prop
+
+
+def _tool_definitions() -> list[dict]:
     category_desc = ", ".join(VALID_CATEGORIES) if VALID_CATEGORIES else "phone, laptop, headphone"
 
     return [

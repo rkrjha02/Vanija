@@ -18,6 +18,30 @@ def test_strips_customer_id():
     assert "customer_id" not in args
 
 
+def test_null_optional_arguments_are_dropped():
+    args, error = validate_tool_call(
+        "search_products", {"category": "phone", "limit": None, "brand": None}
+    )
+    assert error is None
+    assert args == {"category": "phone"}
+
+
+def test_cancel_order_with_null_id_is_valid():
+    args, error = validate_tool_call("cancel_order", {"order_id": None})
+    assert error is None
+    assert args == {}
+
+
+def test_optional_schema_fields_accept_null():
+    from app.tools.definitions import get_tool_definitions
+
+    tools = {t["function"]["name"]: t["function"]["parameters"] for t in get_tool_definitions()}
+    assert tools["cancel_order"]["properties"]["order_id"]["type"] == ["integer", "null"]
+    assert tools["search_products"]["properties"]["sort_by"]["enum"][-1] is None
+    assert tools["search_products"]["properties"]["category"]["type"] == "string"
+    assert tools["add_to_cart"]["properties"]["product_id"]["type"] == "string"
+
+
 def test_search_valid():
     args, error = validate_tool_call(
         "search_products", {"category": "phone", "max_price": 15000}
