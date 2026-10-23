@@ -6,8 +6,10 @@ Usage (from backend/):
     python -m tests.llm_test_set --runs 1     # quick single pass
     python -m tests.llm_test_set --case 5     # one case only
 
-Requires GROQ_API_KEY, GROQ_MODEL, and TEST_DATABASE_URL in .env.
+Requires GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, and TEST_DATABASE_URL in .env.
 Each run uses Groq quota. Temperature is 0.3 (set in the provider).
+Policy files are loaded into the test database first (Gemini embedding calls,
+skipped when the files are already there and unchanged).
 """
 
 import argparse
@@ -18,6 +20,7 @@ import sys
 import time
 import uuid
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.agent.loop import run_agent_loop
@@ -34,6 +37,7 @@ from app.data.models import (
     OrderItem,
     Product,
 )
+from app.ingest.ingest import ingest_policies
 from app.tools.definitions import VALID_CATEGORIES
 
 if sys.platform == "win32":
@@ -79,6 +83,10 @@ class Case:
         addresses: list[dict] | None = None,
         placed_orders: list[dict] | None = None,
         history: list[dict] | None = None,
+        expect_all_tools: list[str] | None = None,
+        expect_question_contains: str | None = None,
+        expect_policy_section: tuple[str, str] | None = None,
+        expect_reply_any: list[str] | None = None,
     ):
         self.name = name
         self.message = message
@@ -89,21 +97,24 @@ class Case:
         self.addresses = addresses
         self.placed_orders = placed_orders
         self.history = history
+        # Every tool in this list must be called, in any order.
+        self.expect_all_tools = expect_all_tools
+        # The search_policies question must contain this word (case-insensitive).
+        self.expect_question_contains = expect_question_contains
+        # (document_title, section) that search_policies must return.
+        self.expect_policy_section = expect_policy_section
+        # The reply must contain at least one of these phrases (case-insensitive).
+        self.expect_reply_any = expect_reply_any
 
 
 # ---------------------------------------------------------------------------
-# The 25 test cases (design section 12 + extras)
+# The test cases (design section 12, design-rag section 10, and extras)
 # ---------------------------------------------------------------------------
 CASES: list[Case] = [
     # --- No-tool cases ---
     Case(
         name="greeting",
         message="Hi",
-        expect_tool=None,
-    ),
-    Case(
-        name="warranty question",
-        message="What is the warranty on Phone A?",
         expect_tool=None,
     ),
     Case(
@@ -351,13 +362,110 @@ CASES: list[Case] = [
         expect_tool="search_products",
         expect_args={"category": "phone", "max_price": 15000},
     ),
+
+    # --- Policy questions (search_policies, design-rag.md section 10) ---
+    Case(
+        name="warranty question",
+        message="What is the warranty on Phone A?",
+        expect_tool="search_policies",
+        expect_question_contains="phone",
+    ),
+    Case(
+        name="return opened headphones",
+        message="Can I return opened headphones?",
+        expect_tool="search_policies",
+        expect_policy_section=("Returns Policy", "Headphones"),
+    ),
+    Case(
+        name="water damage phones",
+        message="Is water damage covered for phones?",
+        expect_tool="search_policies",
+        expect_question_contains="phone",
+    ),
+    Case(
+        name="mixed language return question",
+        message="opened headphones return ho sakta hai?",
+        expect_tool="search_policies",
+        expect_policy_section=("Returns Policy", "Headphones"),
+    ),
+    Case(
+        name="policy with no answer",
+        message="Do you recycle old batteries?",
+        expect_tool="search_policies",
+        expect_reply_any=["don't have", "do not have", "no information", "not have that",
+                          "unable to find", "couldn't find", "could not find"],
+    ),
+    Case(
+        name="product search is not a policy question",
+        message="Show phones under 15000",
+        expect_tool="search_products",
+        expect_args={"category": "phone", "max_price": 15000},
+    ),
+    Case(
+        name="follow-up warranty names the product",
+        message="what about the warranty on that?",
+        expect_tool="search_policies",
+        expect_question_contains="headphone",
+        shown_products=[{
+            "label": "headphones",
+            "products": [{"position": 1, "id": "HPH001", "name": "Headphone A"}],
+        }],
+        history=[
+            {"role": "user", "content": "Show me headphones"},
+            {"role": "assistant", "content": "Here is Headphone A, wireless with noise cancelling."},
+        ],
+    ),
+    Case(
+        name="price and warranty uses both tools",
+        message="What does Phone A cost and what's its warranty?",
+        expect_tool=None,
+        expect_all_tools=["get_product_details", "search_policies"],
+        shown_products=[{
+            "label": "phones",
+            "products": [{"position": 1, "id": "PHN001", "name": "Phone A"}],
+        }],
+    ),
 ]
 
 
 # ---------------------------------------------------------------------------
 # Checker: did the LLM call the expected tool with the expected args?
 # ---------------------------------------------------------------------------
-def check_result(case: Case, result: dict, tool_calls_seen: list[dict]) -> tuple[bool, str]:
+def check_result(
+    case: Case, result: dict, tool_calls_seen: list[dict], policy_results: list[dict] | None = None
+) -> tuple[bool, str]:
+    ok, detail = _check_tools(case, tool_calls_seen)
+    if not ok:
+        return ok, detail
+
+    if case.expect_question_contains:
+        questions = [tc["arguments"].get("question", "") for tc in tool_calls_seen
+                     if tc["name"] == "search_policies"]
+        if not any(case.expect_question_contains.lower() in q.lower() for q in questions):
+            return False, f"policy question {questions!r} does not mention {case.expect_question_contains!r}"
+
+    if case.expect_policy_section:
+        found = [(r["document_title"], r["section"])
+                 for res in (policy_results or []) for r in res.get("results", [])]
+        if tuple(case.expect_policy_section) not in found:
+            return False, f"expected section {case.expect_policy_section}, policy search returned {found}"
+
+    if case.expect_reply_any:
+        reply = (result.get("reply_text") or "").lower()
+        if not any(phrase.lower() in reply for phrase in case.expect_reply_any):
+            return False, f"reply does not say it lacks the information: {result.get('reply_text')!r}"
+
+    return True, detail
+
+
+def _check_tools(case: Case, tool_calls_seen: list[dict]) -> tuple[bool, str]:
+    if case.expect_all_tools:
+        names = [tc["name"] for tc in tool_calls_seen]
+        missing = [t for t in case.expect_all_tools if t not in names]
+        if missing:
+            return False, f"expected all of {case.expect_all_tools}, missing {missing} (called {names})"
+        return True, f"called all of {case.expect_all_tools}"
+
     if case.expect_tool is None:
         if tool_calls_seen:
             names = [tc["name"] for tc in tool_calls_seen]
@@ -442,7 +550,9 @@ async def setup_case(session: AsyncSession, case: Case) -> str:
 # Intercept tool calls by monkey-patching the agent loop's call_llm
 # ---------------------------------------------------------------------------
 _tool_calls_log: list[dict] = []
+_policy_results_log: list[dict] = []
 _original_call_llm = None
+_original_policy_handler = None
 
 
 async def _intercepting_call_llm(messages, tools):
@@ -452,19 +562,26 @@ async def _intercepting_call_llm(messages, tools):
     return result
 
 
+async def _logging_policy_handler(session, args, customer_id=""):
+    result = await _original_policy_handler(session, args, customer_id)
+    _policy_results_log.append(result)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 async def run_one(engine, case: Case) -> tuple[bool, str]:
-    global _tool_calls_log
+    global _tool_calls_log, _policy_results_log
     _tool_calls_log = []
+    _policy_results_log = []
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         customer_id = await setup_case(session, case)
         result = await run_agent_loop(session, customer_id, case.message)
 
-    passed, detail = check_result(case, result, _tool_calls_log)
+    passed, detail = check_result(case, result, _tool_calls_log, _policy_results_log)
     return passed, detail
 
 
@@ -480,6 +597,9 @@ async def main():
     if not settings.groq_api_key:
         print("ERROR: GROQ_API_KEY not set in .env")
         sys.exit(1)
+    if not settings.gemini_api_key:
+        print("ERROR: GEMINI_API_KEY not set in .env (needed for policy cases)")
+        sys.exit(1)
 
     VALID_CATEGORIES.clear()
     VALID_CATEGORIES.extend(["phone", "laptop", "headphone"])
@@ -487,6 +607,7 @@ async def main():
     engine = create_async_engine(settings.test_database_url, pool_pre_ping=True)
 
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
 
     # Seed products
@@ -496,12 +617,25 @@ async def main():
             await session.merge(p)
         await session.commit()
 
+    # Load policy files into the test database (unchanged files are skipped).
+    async with session_factory() as session:
+        report = await ingest_policies(session)
+    if report.failed:
+        print(f"ERROR: loading policies failed: {report.failed}")
+        sys.exit(1)
+    print(f"Policies: {len(report.loaded)} loaded, {len(report.skipped)} already there")
+
     # Monkey-patch call_llm to intercept tool calls
     import app.providers.openai_compat as provider_mod
     import app.agent.loop as loop_mod
     global _original_call_llm
     _original_call_llm = provider_mod.call_llm
     loop_mod.call_llm = _intercepting_call_llm
+
+    # Log search_policies results so cases can check which section came back.
+    global _original_policy_handler
+    _original_policy_handler = loop_mod.TOOL_HANDLERS["search_policies"]["handle"]
+    loop_mod.TOOL_HANDLERS["search_policies"]["handle"] = _logging_policy_handler
 
     cases = CASES
     if args.case is not None:

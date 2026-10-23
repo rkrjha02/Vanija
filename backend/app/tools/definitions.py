@@ -32,7 +32,7 @@ def _tool_definitions() -> list[dict]:
                 "name": "search_products",
                 "description": (
                     "Search for products by category. Use when the customer asks to see, find, or browse products. "
-                    "Category is required."
+                    "Category is required. Not for store policies such as returns or warranty."
                 ),
                 "parameters": {
                     "type": "object",
@@ -78,8 +78,8 @@ def _tool_definitions() -> list[dict]:
                 "name": "get_product_details",
                 "description": (
                     "Get full details for 1 to 3 products by their IDs. "
-                    "Use when the customer wants more information about specific products. "
-                    "Does not change the shown products list."
+                    "Use for price, stock, specs, or more information about specific products. "
+                    "Does not change the shown products list. Has no warranty or return rules."
                 ),
                 "parameters": {
                     "type": "object",
@@ -217,6 +217,28 @@ def _tool_definitions() -> list[dict]:
                             "description": "The order to cancel, if the customer named one.",
                         },
                     },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_policies",
+                "description": (
+                    "Search the store's policy documents: returns, refunds, warranty, shipping, "
+                    "cancellation, and Cash on Delivery payment. Never gives prices, stock, or specs. "
+                    "Write a short self-contained question that names the product type, for example "
+                    "'What is the warranty period for headphones?', not 'what about that?'."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "question": {
+                            "type": "string",
+                            "description": "The policy question, including the product type if one was discussed.",
+                        },
+                    },
+                    "required": ["question"],
                 },
             },
         },
