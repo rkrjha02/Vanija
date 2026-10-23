@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     policies_dir: Path = BACKEND_DIR.parent / "policies"
     max_chunk_chars: int = 1500
     policy_results_limit: int = 3
-    policy_min_similarity: float = 0.5
+    policy_min_similarity: float = 0.65
     policy_question_max_length: int = 300
 
 
