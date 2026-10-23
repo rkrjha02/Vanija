@@ -63,13 +63,15 @@ Replacing a document = delete all chunks with that `document_id`, then insert th
 ## 4. Embedding layer (separate from the chat provider layer)
 
 - Lives in `backend/app/embeddings/`. Only this folder talks to the embedding API. The chat provider layer is not used for embeddings.
-- Model: Google Gemini embeddings, `gemini-embedding-001`, output size **768** dimensions. Free tier, no billing.
-- Settings in `.env` (names to be proposed by Claude Code): embedding provider, model name, dimensions (768), API key. The Gemini API key is a NEW key the user creates in Google AI Studio and puts in `.env` themselves.
+- Model: Google `gemini-embedding-2` (newer than `gemini-embedding-001`; chosen after checking Google's docs during R1), output size **768** dimensions. Free tier, no billing.
+- SDK: `google-genai` (version 2.32.0). Uses `client.aio.models.embed_content` with `EmbedContentConfig(output_dimensionality=768)`.
+- `gemini-embedding-2` has no `task_type` parameter. Instead, text prefixes distinguish documents from questions: documents use `title: {title} | text: {text}`, questions use `task: search result | query: {question}`.
+- Vectors are auto-normalized by the model; no manual normalization needed before cosine similarity.
+- Settings in `.env`: `GEMINI_API_KEY`, `EMBEDDING_PROVIDER` (gemini), `EMBEDDING_MODEL` (gemini-embedding-2), `EMBEDDING_DIMENSIONS` (768). The Gemini API key is a NEW key the user creates in Google AI Studio and puts in `.env` themselves.
 - **NEVER enable Cloud Billing on the Google project that owns the key.** Staying without billing keeps the free tier.
-- Free-tier limits for `gemini-embedding-001` as reported (not guaranteed, may change): 100 requests per minute, 30,000 tokens per minute, 1,000 requests per day. The ingest command must pace its calls to stay under them (one policy collection of about 40 chunks of about 200 tokens is about 8,000 tokens, so it fits within a minute; larger collections must be spread out).
+- Free-tier rate limits: default 30 requests per minute in config (exact limits visible only in AI Studio, not published). The ingest command paces its calls to stay under this.
 - Free-tier content may be used by Google to improve its products; paid-tier content is not. Fine for learning with fake questions and public policy text. Real clients should use the paid tier, after reading its terms.
 - The same model must be used for the chunks and for the customer's question. Vectors from different models cannot be compared.
-- Before implementing, CHECK Google's current docs for: (a) whether 768-dimension vectors must be normalized before cosine similarity, (b) whether the API has a setting that marks a text as a document or as a question, (c) whether a newer embedding model (for example "Gemini Embedding 2") is recommended. If a newer model is recommended, tell the user BEFORE fixing the column size.
 
 ---
 
