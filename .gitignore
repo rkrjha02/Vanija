@@ -13,6 +13,9 @@ __pycache__/
 .vscode/
 .idea/
 
+# Test results (timestamped JSON files)
+backend/results/
+
 # OS
 Thumbs.db
 Desktop.ini

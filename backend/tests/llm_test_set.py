@@ -16,9 +16,12 @@ import argparse
 import asyncio
 import json
 import logging
+import statistics
 import sys
 import time
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -708,6 +711,7 @@ async def main():
     total = 0
     passed = 0
     failed_cases = []
+    all_records: list[dict] = []
 
     print(f"\nRunning {len(cases)} cases x {args.runs} runs each\n")
     print("-" * 70)
@@ -727,6 +731,16 @@ async def main():
                 passed += 1
                 case_passes += 1
 
+            record = {
+                "case_id": case_num,
+                "case_name": case.name,
+                "run": run + 1,
+                "passed": ok,
+                "detail": detail,
+                **extra,
+            }
+            all_records.append(record)
+
             status = "PASS" if ok else "FAIL"
             rc = extra.get("reply_check", "")
             rc_line = f" | reply: {rc}" if rc else ""
@@ -735,7 +749,11 @@ async def main():
                 rc_line += f" UNSOURCED: {rcd['failed']}"
             if rcd.get("needs_review"):
                 rc_line += f" REVIEW: {rcd['needs_review']}"
-            print(f"  [{status}] Case {case_num} run {run+1}: {case.name} — {detail}{rc_line}")
+            t_info = ""
+            if extra.get("response_time_s"):
+                t_info = f" | {extra['response_time_s']}s, {extra['llm_rounds']}r"
+                t_info += f", {extra['prompt_tokens']+extra['completion_tokens']}tok"
+            print(f"  [{status}] Case {case_num} run {run+1}: {case.name} — {detail}{rc_line}{t_info}")
 
             # Small delay between runs to avoid rate limits
             if run < args.runs - 1:
@@ -754,8 +772,71 @@ async def main():
 
     await engine.dispose()
 
-    print("=" * 70)
+    # --- Save results to JSON ---
+    now = datetime.now(timezone.utc)
+    results_dir = Path(__file__).resolve().parent.parent / "results"
+    results_dir.mkdir(exist_ok=True)
+    filename = f"llm_test_{now.strftime('%Y%m%d_%H%M%S')}.json"
+    output = {
+        "model": settings.groq_model,
+        "date": now.isoformat(),
+        "runs_per_case": args.runs,
+        "total_cases": len(cases),
+        "records": all_records,
+    }
+    (results_dir / filename).write_text(json.dumps(output, indent=2, default=str))
+    print(f"\nResults saved to backend/results/{filename}")
+
+    # --- Summary ---
+    print("\n" + "=" * 70)
+    print(f"Model: {settings.groq_model}")
+    print(f"Date:  {now.strftime('%Y-%m-%d %H:%M:%S UTC')}")
     print(f"TOTAL: {passed}/{total} passed ({passed/total*100:.0f}%)")
+
+    # Cases passed in all runs / at least one run
+    case_pass_counts: dict[int, int] = {}
+    for r in all_records:
+        cid = r["case_id"]
+        case_pass_counts[cid] = case_pass_counts.get(cid, 0) + (1 if r["passed"] else 0)
+    all_pass = sum(1 for c in case_pass_counts.values() if c == args.runs)
+    any_pass = sum(1 for c in case_pass_counts.values() if c > 0)
+    print(f"Cases passed all {args.runs} runs: {all_pass}/{len(case_pass_counts)}")
+    print(f"Cases passed at least 1 run:  {any_pass}/{len(case_pass_counts)}")
+
+    # Timing
+    times_incl = [r["response_time_s"] for r in all_records if r.get("response_time_s")]
+    times_excl = [r["response_time_ex_ratelimit_s"] for r in all_records if r.get("response_time_ex_ratelimit_s")]
+    if times_incl:
+        print(f"\nResponse time (incl. rate-limit waits):")
+        print(f"  median: {statistics.median(times_incl):.1f}s  slowest: {max(times_incl):.1f}s")
+    if times_excl:
+        print(f"Response time (excl. rate-limit waits):")
+        print(f"  median: {statistics.median(times_excl):.1f}s  slowest: {max(times_excl):.1f}s")
+
+    # Tokens
+    total_prompt = sum(r.get("prompt_tokens", 0) for r in all_records)
+    total_completion = sum(r.get("completion_tokens", 0) for r in all_records)
+    total_tokens = total_prompt + total_completion
+    per_msg = [r.get("prompt_tokens", 0) + r.get("completion_tokens", 0) for r in all_records]
+    per_msg_nonzero = [t for t in per_msg if t > 0]
+    if per_msg_nonzero:
+        print(f"\nTokens:")
+        print(f"  total: {total_tokens} (prompt {total_prompt} + completion {total_completion})")
+        print(f"  median per message: {statistics.median(per_msg_nonzero):.0f}")
+
+    # Rate limits
+    total_rl_retries = sum(r.get("rate_limit_retries", 0) for r in all_records)
+    total_rl_wait = sum(r.get("rate_limit_wait_s", 0) for r in all_records)
+    if total_rl_retries:
+        print(f"\nRate-limit retries: {total_rl_retries}, total wait: {total_rl_wait:.1f}s")
+
+    # Reply checks
+    rc_counts = {"passed": 0, "failed": 0, "needs_review": 0}
+    for r in all_records:
+        rc = r.get("reply_check", "passed")
+        rc_counts[rc] = rc_counts.get(rc, 0) + 1
+    print(f"\nReply checks: {rc_counts['passed']} passed, {rc_counts['failed']} failed, {rc_counts['needs_review']} needs review")
+
     if failed_cases:
         print(f"\nFailed/flaky cases:")
         for num, name, p, r in failed_cases:
