@@ -1,8 +1,30 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+REQUIRED_SCHEME = "postgresql+psycopg"
+
+
+def _check_database_url(url: str, setting_name: str) -> None:
+    """Validate a database URL's scheme and host. Never prints the URL or password."""
+    parsed = urlparse(url)
+    if parsed.scheme != REQUIRED_SCHEME:
+        raise ValueError(
+            f"{setting_name} must start with 'postgresql+psycopg://'. "
+            f"Found scheme '{parsed.scheme}://'. "
+            "Change the start of the connection string."
+        )
+    host = (parsed.hostname or "").lower()
+    if "-pooler" in host:
+        raise ValueError(
+            f"{setting_name} must use the DIRECT connection string, "
+            "but the host contains '-pooler'. "
+            "Remove '-pooler' from the host name in your .env file."
+        )
 
 
 class Settings(BaseSettings):
@@ -14,6 +36,13 @@ class Settings(BaseSettings):
     # Database
     database_url: str
     test_database_url: str = ""
+
+    @model_validator(mode="after")
+    def _validate_database_urls(self) -> "Settings":
+        _check_database_url(self.database_url, "DATABASE_URL")
+        if self.test_database_url:
+            _check_database_url(self.test_database_url, "TEST_DATABASE_URL")
+        return self
 
     # Groq
     groq_api_key: str = ""
