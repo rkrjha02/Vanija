@@ -755,9 +755,9 @@ async def main():
                 t_info += f", {extra['prompt_tokens']+extra['completion_tokens']}tok"
             print(f"  [{status}] Case {case_num} run {run+1}: {case.name} — {detail}{rc_line}{t_info}")
 
-            # Small delay between runs to avoid rate limits
+            # Pace between runs to stay within Groq/Gemini free-tier limits
             if run < args.runs - 1:
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
 
         rate = case_passes / args.runs * 100
         flag = " <<<" if case_passes < args.runs else ""
@@ -767,8 +767,9 @@ async def main():
         if case_passes < args.runs:
             failed_cases.append((case_num, case.name, case_passes, args.runs))
 
-        # Delay between cases
-        await asyncio.sleep(2)
+        # Pace between cases to stay within free-tier rate limits
+        if i < len(cases) - 1:
+            await asyncio.sleep(5)
 
     await engine.dispose()
 
