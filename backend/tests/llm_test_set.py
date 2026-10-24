@@ -552,13 +552,24 @@ async def setup_case(session: AsyncSession, case: Case) -> str:
 _tool_calls_log: list[dict] = []
 _policy_results_log: list[dict] = []
 _tool_results_log: list[str] = []
+_llm_rounds: int = 0
+_prompt_tokens: int = 0
+_completion_tokens: int = 0
+_rate_limit_retries: int = 0
+_rate_limit_wait_s: float = 0.0
 _original_call_llm = None
-_original_policy_handler = None
 _original_handlers: dict[str, object] = {}
 
 
 async def _intercepting_call_llm(messages, tools):
+    global _llm_rounds, _prompt_tokens, _completion_tokens
+    global _rate_limit_retries, _rate_limit_wait_s
     result = await _original_call_llm(messages, tools)
+    _llm_rounds += 1
+    _prompt_tokens += result.get("prompt_tokens", 0)
+    _completion_tokens += result.get("completion_tokens", 0)
+    _rate_limit_retries += result.get("rate_limit_retries", 0)
+    _rate_limit_wait_s += result.get("rate_limit_wait_s", 0.0)
     for tc in result.get("tool_calls", []):
         _tool_calls_log.append({"name": tc["name"], "arguments": tc["arguments"]})
     return result
@@ -579,14 +590,24 @@ def _make_logging_handler(tool_name: str, original):
 # ---------------------------------------------------------------------------
 async def run_one(engine, case: Case) -> tuple[bool, str, dict]:
     global _tool_calls_log, _policy_results_log, _tool_results_log
+    global _llm_rounds, _prompt_tokens, _completion_tokens
+    global _rate_limit_retries, _rate_limit_wait_s
     _tool_calls_log = []
     _policy_results_log = []
     _tool_results_log = []
+    _llm_rounds = 0
+    _prompt_tokens = 0
+    _completion_tokens = 0
+    _rate_limit_retries = 0
+    _rate_limit_wait_s = 0.0
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    t0 = time.monotonic()
     async with session_factory() as session:
         customer_id = await setup_case(session, case)
         result = await run_agent_loop(session, customer_id, case.message)
+    elapsed = time.monotonic() - t0
 
     passed, detail = check_result(case, result, _tool_calls_log, _policy_results_log)
 
@@ -597,12 +618,24 @@ async def run_one(engine, case: Case) -> tuple[bool, str, dict]:
             policy_texts.append(chunk.get("text", ""))
     reply_check = check_reply(result.get("reply_text", ""), _tool_results_log, policy_texts)
 
-    return passed, detail, {"reply_check": reply_check.status,
-                            "reply_check_detail": {
-                                "passed": reply_check.passed,
-                                "failed": reply_check.failed,
-                                "needs_review": reply_check.needs_review,
-                            }}
+    record = {
+        "tools_called": [tc["name"] for tc in _tool_calls_log],
+        "response_time_s": round(elapsed, 2),
+        "response_time_ex_ratelimit_s": round(elapsed - _rate_limit_wait_s, 2),
+        "llm_rounds": _llm_rounds,
+        "prompt_tokens": _prompt_tokens,
+        "completion_tokens": _completion_tokens,
+        "rate_limit_retries": _rate_limit_retries,
+        "rate_limit_wait_s": round(_rate_limit_wait_s, 2),
+        "reply_check": reply_check.status,
+        "reply_check_detail": {
+            "passed": reply_check.passed,
+            "failed": reply_check.failed,
+            "needs_review": reply_check.needs_review,
+        },
+    }
+
+    return passed, detail, record
 
 
 async def main():

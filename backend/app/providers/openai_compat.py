@@ -44,7 +44,13 @@ def _parse_response(data: dict) -> dict:
                 "arguments": arguments,
             })
 
-    return {"reply_text": reply_text, "tool_calls": tool_calls}
+    usage = data.get("usage", {})
+    return {
+        "reply_text": reply_text,
+        "tool_calls": tool_calls,
+        "prompt_tokens": usage.get("prompt_tokens", 0),
+        "completion_tokens": usage.get("completion_tokens", 0),
+    }
 
 
 async def call_llm(messages: list[dict], tools: list[dict]) -> dict:
@@ -62,6 +68,8 @@ async def call_llm(messages: list[dict], tools: list[dict]) -> dict:
         body["tools"] = tools
 
     last_error = None
+    rate_limit_retries = 0
+    rate_limit_wait_s = 0.0
 
     for attempt in range(1 + RATE_LIMIT_MAX_RETRIES):
         try:
@@ -71,6 +79,8 @@ async def call_llm(messages: list[dict], tools: list[dict]) -> dict:
             if response.status_code == 429:
                 last_error = LLMRateLimitError("Rate limited by provider")
                 if attempt < RATE_LIMIT_MAX_RETRIES:
+                    rate_limit_retries += 1
+                    rate_limit_wait_s += RATE_LIMIT_WAIT_SECONDS
                     logger.warning("Rate limited, waiting %ds (attempt %d)", RATE_LIMIT_WAIT_SECONDS, attempt + 1)
                     await asyncio.sleep(RATE_LIMIT_WAIT_SECONDS)
                     continue
@@ -80,7 +90,10 @@ async def call_llm(messages: list[dict], tools: list[dict]) -> dict:
                 logger.error("LLM HTTP %d: %s", response.status_code, response.text[:500])
             response.raise_for_status()
             data = response.json()
-            return _parse_response(data)
+            result = _parse_response(data)
+            result["rate_limit_retries"] = rate_limit_retries
+            result["rate_limit_wait_s"] = rate_limit_wait_s
+            return result
 
         except httpx.TimeoutException:
             if attempt == 0:
