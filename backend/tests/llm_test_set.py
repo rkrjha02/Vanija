@@ -551,8 +551,10 @@ async def setup_case(session: AsyncSession, case: Case) -> str:
 # ---------------------------------------------------------------------------
 _tool_calls_log: list[dict] = []
 _policy_results_log: list[dict] = []
+_tool_results_log: list[str] = []
 _original_call_llm = None
 _original_policy_handler = None
+_original_handlers: dict[str, object] = {}
 
 
 async def _intercepting_call_llm(messages, tools):
@@ -562,19 +564,24 @@ async def _intercepting_call_llm(messages, tools):
     return result
 
 
-async def _logging_policy_handler(session, args, customer_id=""):
-    result = await _original_policy_handler(session, args, customer_id)
-    _policy_results_log.append(result)
-    return result
+def _make_logging_handler(tool_name: str, original):
+    async def handler(session, args, customer_id=""):
+        result = await original(session, args, customer_id)
+        _tool_results_log.append(json.dumps(result, default=str))
+        if tool_name == "search_policies":
+            _policy_results_log.append(result)
+        return result
+    return handler
 
 
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
-async def run_one(engine, case: Case) -> tuple[bool, str]:
-    global _tool_calls_log, _policy_results_log
+async def run_one(engine, case: Case) -> tuple[bool, str, dict]:
+    global _tool_calls_log, _policy_results_log, _tool_results_log
     _tool_calls_log = []
     _policy_results_log = []
+    _tool_results_log = []
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
@@ -582,7 +589,20 @@ async def run_one(engine, case: Case) -> tuple[bool, str]:
         result = await run_agent_loop(session, customer_id, case.message)
 
     passed, detail = check_result(case, result, _tool_calls_log, _policy_results_log)
-    return passed, detail
+
+    from tests.reply_checker import check_reply
+    policy_texts = []
+    for pr in _policy_results_log:
+        for chunk in pr.get("results", []):
+            policy_texts.append(chunk.get("text", ""))
+    reply_check = check_reply(result.get("reply_text", ""), _tool_results_log, policy_texts)
+
+    return passed, detail, {"reply_check": reply_check.status,
+                            "reply_check_detail": {
+                                "passed": reply_check.passed,
+                                "failed": reply_check.failed,
+                                "needs_review": reply_check.needs_review,
+                            }}
 
 
 async def main():
@@ -635,14 +655,14 @@ async def main():
     # Monkey-patch call_llm to intercept tool calls
     import app.providers.openai_compat as provider_mod
     import app.agent.loop as loop_mod
-    global _original_call_llm
+    global _original_call_llm, _original_handlers
     _original_call_llm = provider_mod.call_llm
     loop_mod.call_llm = _intercepting_call_llm
 
-    # Log search_policies results so cases can check which section came back.
-    global _original_policy_handler
-    _original_policy_handler = loop_mod.TOOL_HANDLERS["search_policies"]["handle"]
-    loop_mod.TOOL_HANDLERS["search_policies"]["handle"] = _logging_policy_handler
+    # Wrap every tool handler to log results (for reply checking and policy section checks).
+    for name, entry in loop_mod.TOOL_HANDLERS.items():
+        _original_handlers[name] = entry["handle"]
+        entry["handle"] = _make_logging_handler(name, entry["handle"])
 
     cases = CASES
     if args.case is not None:
@@ -665,9 +685,9 @@ async def main():
 
         for run in range(args.runs):
             try:
-                ok, detail = await run_one(engine, case)
+                ok, detail, extra = await run_one(engine, case)
             except Exception as e:
-                ok, detail = False, f"ERROR: {e}"
+                ok, detail, extra = False, f"ERROR: {e}", {}
 
             total += 1
             if ok:
@@ -675,7 +695,14 @@ async def main():
                 case_passes += 1
 
             status = "PASS" if ok else "FAIL"
-            print(f"  [{status}] Case {case_num} run {run+1}: {case.name} — {detail}")
+            rc = extra.get("reply_check", "")
+            rc_line = f" | reply: {rc}" if rc else ""
+            rcd = extra.get("reply_check_detail", {})
+            if rcd.get("failed"):
+                rc_line += f" UNSOURCED: {rcd['failed']}"
+            if rcd.get("needs_review"):
+                rc_line += f" REVIEW: {rcd['needs_review']}"
+            print(f"  [{status}] Case {case_num} run {run+1}: {case.name} — {detail}{rc_line}")
 
             # Small delay between runs to avoid rate limits
             if run < args.runs - 1:
