@@ -198,7 +198,7 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values:
 | `EMBEDDING_MODEL` | `gemini-embedding-2` |
 | `EMBEDDING_DIMENSIONS` | `768` |
 
-> **Warning:** If `DATABASE_URL` uses a pooled Neon address (host contains `-pooler`) or does not start with `postgresql+psycopg://`, the app will fail with a driver error at runtime. There is no startup check for this.
+> **Warning:** If `DATABASE_URL` uses a pooled Neon address (host contains `-pooler`) or does not start with `postgresql+psycopg://`, the app will fail. The app validates this at startup and gives a clear error if the scheme or host is wrong.
 
 ### Run migrations, seed data, and ingest policies
 
@@ -272,11 +272,10 @@ python -m tests.llm_test_set --case 5     # one case only
 
 ## Known limitations
 
-- **No timeout on the customer lock.** There is no application-level timeout on the customer lock. A second message from the same customer waits until the first finishes.
 - **Cards are not redrawn after a reload.** The get-history endpoint returns text only. Product and cart cards from before the reload are not shown.
 - **No streaming.** The backend returns one complete response per message. The frontend shows a typing indicator while waiting.
-- **Automatic reply checks not implemented.** The design specifies that every ₹ amount in the LLM's reply must appear in that turn's tool results, and every duration must appear in the policy text. These checks are not yet in the LLM test set.
-- **No validation of DATABASE_URL format.** A pooled Neon address (host contains `-pooler`) or a missing `postgresql+psycopg://` scheme prefix causes a driver error at runtime, not a clear startup message.
+- **The lock-timeout reply disappears on reload.** When a second message is rejected because the lock is held, the "still working on your previous message" reply is not saved to history. It disappears if the page is reloaded.
+- **Reply checker marks word numbers as "needs review".** The automatic reply check cannot reliably convert word-form numbers ("seven days") to digits, so these are flagged for manual review. The checker only validates against this turn's tool results and policy text — the state block and earlier messages are not checked.
 - **Sample data only.** The product catalog and policy documents are made-up examples for development. Replace them before any real use.
 
 ## Roadmap

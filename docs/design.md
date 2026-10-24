@@ -36,6 +36,7 @@ Phase 1 is a local learning project with a web chat interface. Real WhatsApp Bus
 | Embeddings | Google `gemini-embedding-2` via `google-genai` SDK, 768 dimensions, pgvector for storage and search |
 | Tests | pytest |
 | Settings | `.env` file read by `config.py` (pydantic-settings). `.env` is never committed. |
+| Startup validation | `config.py` validates that `DATABASE_URL` and `TEST_DATABASE_URL` use the `postgresql+psycopg://` scheme and do not contain `-pooler` in the host. Error messages never print the URL or password. |
 | OS of the user | Windows, PowerShell, scripts under `D:\` |
 
 Notes:
@@ -116,6 +117,8 @@ If a check fails, do not run the tool. Return an error result that says what is 
 **Rule 4: every turn is saved and always ends with a reply.** Save the customer's message first. Save tool requests and results as they happen. If the LLM failed, the final assistant message is the fixed message the customer saw.
 
 **Concurrency:** one message at a time per customer. A second message from the same customer waits until the first finishes, then loads the updated history, state, and cart. Use a PostgreSQL session advisory lock per customer, taken on a DIRECT connection and held for the whole turn (it releases automatically if the connection closes). Do NOT use Neon's pooled connection (PgBouncer in transaction mode), because session advisory locks do not work through it. The frontend also disables the send box as a courtesy, but the backend lock is the real protection.
+
+**Lock wait timeout:** the customer lock has a timeout of 90 seconds (config setting `lock_wait_seconds`). If a second message cannot acquire the lock within this time, the backend returns the fixed reply: "I'm still working on your previous message. Please send your message again in a moment." No LLM call is made and the timed-out message is NOT saved in the conversation history — it does not appear after a page reload.
 
 Thinking mode is OFF by default (it made requests about 1.7 times slower in tests with no accuracy gain). Rules-first handling for trivial messages like "Hi" is deferred.
 
@@ -393,13 +396,20 @@ Two kinds:
 1. Code tests (pytest): tools, data layer, order transaction, Confirm logic. They use a test database with fake products and never call the LLM. Run after every code change.
 2. LLM behavior tests (the fixed test set): each case has a starting situation (database, cart, state block, history), a customer message, and an expected result (which tool and key arguments, or "no tool"). Start with 20 to 30 cases, run each 3 times, low temperature (0.3). Run these only when the model, provider, or prompt changes (they use Groq quota).
 
-Reply text is judged by simple automatic rules, for example: every ₹ amount in the reply must appear in that turn's tool results. Any duration in the reply (for example "7 days", "12 months") must appear in that turn's policy text, to prevent the LLM from inventing a wrong number. Every bug found later becomes a new test case.
+Reply text is judged by automatic rules:
+- Every ₹ amount in the reply (also "Rs", "Rs." and "INR", with or without thousands separators) must appear in that turn's tool results. Backend-computed values, such as the cart total, are part of the tool results. An amount the LLM calculated itself fails. Amounts are normalized before comparing (12,500 = 12500 = 12500.00). Only this turn's tool results count as sources — the state block and earlier messages do not.
+- Any duration in the reply (a number followed by day, week, month, year or hour) must appear in that turn's tool results or policy text.
+- If the reply writes a number as a word (for example "seven days"), the check reports "needs review" instead of failing, because word-to-number matching is unreliable.
+Every bug found later becomes a new test case.
 
 ### Retrieval tests (no chat LLM; cheap)
 A list of policy questions, each with the section that should come back. Used to tune the minimum similarity and to compare chunking strategies later. Includes: clear questions, different wordings, mixed-language questions, and questions with no answer in the policies (must return `no_relevant_policy`).
 
 ### Code tests for ingest
 A changed file is re-embedded; an unchanged file is skipped. Replacing a document deletes old chunks and inserts new ones. A failure halfway leaves old chunks in place (rollback). Embedding calls are mocked (no real API calls).
+
+### Database safety guard
+Code tests (pytest) and the LLM test set refuse to run if `TEST_DATABASE_URL` is missing, or if it points to the same database as `DATABASE_URL`. Hosts are normalized before comparing (lowercase, remove `-pooler`, ignore port). The error message never prints the URL or password.
 
 Example cases:
 | Starting situation | Customer says | Expected |
