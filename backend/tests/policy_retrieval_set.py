@@ -6,7 +6,9 @@ Used to tune POLICY_MIN_SIMILARITY in config.py.
 """
 
 import asyncio
+import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -49,12 +51,14 @@ async def main():
     threshold = settings.policy_min_similarity
     passed = 0
     answer_scores, no_answer_scores = [], []
+    records: list[dict] = []
+    no_answer_passed = 0
+    no_answer_total = 0
 
     async with async_session() as session:
         for question, kind, expected in CASES:
             await pacer.wait()
             vector = await embed_question(question)
-            # min_similarity=-1 shows the top 3 whatever their score, to help tuning.
             top = await search_chunks(session, vector, limit=3, min_similarity=-1)
             kept = [t for t in top if t["similarity"] >= threshold]
             kept_keys = {(t["source_file"], t["section"]) for t in kept}
@@ -65,10 +69,27 @@ async def main():
                 if match:
                     answer_scores.append(max(match))
             else:
+                no_answer_total += 1
                 ok = not kept
+                if ok:
+                    no_answer_passed += 1
                 if top:
                     no_answer_scores.append(top[0]["similarity"])
             passed += ok
+
+            records.append({
+                "question": question,
+                "kind": kind,
+                "expected": [f"{f} > {s}" for f, s in expected] or ["no_relevant_policy"],
+                "passed": ok,
+                "top_results": [
+                    {"similarity": round(t["similarity"], 4),
+                     "source_file": t["source_file"],
+                     "section": t["section"],
+                     "kept": t["similarity"] >= threshold}
+                    for t in top
+                ],
+            })
 
             print(f"\n[{'PASS' if ok else 'FAIL'}] ({kind}) {question}")
             expected_text = ", ".join(f"{f} > {s}" for f, s in expected) or "no_relevant_policy"
@@ -79,7 +100,30 @@ async def main():
 
     await engine.dispose()
 
-    print(f"\n{passed}/{len(CASES)} passed at policy_min_similarity = {threshold}")
+    # --- Save results to JSON ---
+    now = datetime.now(timezone.utc)
+    results_dir = Path(__file__).resolve().parent.parent / "results"
+    results_dir.mkdir(exist_ok=True)
+    filename = f"retrieval_test_{now.strftime('%Y%m%d_%H%M%S')}.json"
+    output = {
+        "date": now.isoformat(),
+        "embedding_model": settings.embedding_model,
+        "policy_min_similarity": threshold,
+        "total": len(CASES),
+        "passed": passed,
+        "records": records,
+    }
+    (results_dir / filename).write_text(json.dumps(output, indent=2))
+    print(f"\nResults saved to backend/results/{filename}")
+
+    # --- Summary ---
+    print(f"\n{'=' * 50}")
+    print(f"{passed} of {len(CASES)} questions returned the expected section in the top 3")
+    if no_answer_total:
+        all_no_answer_ok = no_answer_passed == no_answer_total
+        print(f"No-answer questions: {no_answer_passed}/{no_answer_total} correctly returned nothing"
+              f" {'OK' if all_no_answer_ok else '<<<'}")
+    print(f"policy_min_similarity = {threshold}")
     if answer_scores:
         print(f"Lowest score of a correct section:   {min(answer_scores):.3f}")
     if no_answer_scores:
