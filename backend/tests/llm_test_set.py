@@ -591,8 +591,15 @@ async def main():
     parser.add_argument("--case", type=int, default=None, help="Run only case N (1-based)")
     args = parser.parse_args()
 
+    from tests.db_guard import DatabaseGuardError, validate_test_database_url
+
     if not settings.test_database_url:
         print("ERROR: TEST_DATABASE_URL not set in .env")
+        sys.exit(1)
+    try:
+        validate_test_database_url(settings.database_url, settings.test_database_url)
+    except DatabaseGuardError as e:
+        print(f"ERROR: {e}")
         sys.exit(1)
     if not settings.groq_api_key:
         print("ERROR: GROQ_API_KEY not set in .env")

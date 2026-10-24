@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import settings
 from app.data.models import Base, Product
+from tests.db_guard import DatabaseGuardError, validate_test_database_url
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -38,6 +39,7 @@ TEST_PRODUCTS = [
 def engine():
     if not settings.test_database_url:
         pytest.skip("TEST_DATABASE_URL not set")
+    validate_test_database_url(settings.database_url, settings.test_database_url)
     return create_async_engine(settings.test_database_url, pool_pre_ping=True)
 
 
