@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.loop import run_agent_loop
 from app.data.customers import get_customer
 from app.data.database import get_db
-from app.data.locking import customer_lock
+from app.data.locking import LockTimeoutError, customer_lock
+
+LOCK_BUSY_REPLY = "I'm still working on your previous message. Please send your message again in a moment."
 
 router = APIRouter()
 
@@ -24,6 +26,8 @@ async def send_message(req: ChatRequest, session: AsyncSession = Depends(get_db)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    async with customer_lock(req.customer_id):
-        result = await run_agent_loop(session, req.customer_id, req.message.strip())
-    return result
+    try:
+        async with customer_lock(req.customer_id):
+            result = await run_agent_loop(session, req.customer_id, req.message.strip())
+    except LockTimeoutError:
+        return {"reply_text": LOCK_BUSY_REPLY, "cards": []}

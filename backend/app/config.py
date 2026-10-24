@@ -51,6 +51,7 @@ class Settings(BaseSettings):
 
     # Agent loop
     max_rounds: int = 5
+    lock_wait_seconds: int = 90
 
     # Memory
     recent_messages_count: int = 10
