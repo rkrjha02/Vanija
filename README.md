@@ -261,7 +261,7 @@ python tests/policy_retrieval_set.py
 ### LLM behavior test set
 
 ```powershell
-python -m tests.llm_test_set              # all 30 cases, 3 runs each
+python -m tests.llm_test_set              # all 32 cases, 3 runs each
 python -m tests.llm_test_set --runs 1     # quick single pass
 python -m tests.llm_test_set --case 5     # one case only
 ```
@@ -276,6 +276,7 @@ python -m tests.llm_test_set --case 5     # one case only
 - **No streaming.** The backend returns one complete response per message. The frontend shows a typing indicator while waiting.
 - **The lock-timeout reply disappears on reload.** When a second message is rejected because the lock is held, the "still working on your previous message" reply is not saved to history. It disappears if the page is reloaded.
 - **Reply checker marks word numbers as "needs review".** The automatic reply check cannot reliably convert word-form numbers ("seven days") to digits, so these are flagged for manual review. The checker only validates against this turn's tool results and policy text — the state block and earlier messages are not checked.
+- **Amounts repeated from the customer's message are not checked against the database.** The reply checker only verifies amounts that the assistant introduces.
 - **Sample data only.** The product catalog and policy documents are made-up examples for development. Replace them before any real use.
 
 ## Roadmap

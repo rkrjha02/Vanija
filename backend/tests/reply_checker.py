@@ -65,6 +65,7 @@ class CheckResult:
         self.passed: list[str] = []
         self.failed: list[str] = []
         self.needs_review: list[str] = []
+        self.passed_from_user: list[str] = []
 
     @property
     def status(self) -> str:
@@ -79,6 +80,7 @@ def check_reply(
     reply: str,
     tool_results: list[str],
     policy_texts: list[str],
+    user_message: str = "",
 ) -> CheckResult:
     """Check amounts and durations in reply against this turn's sources.
 
@@ -86,9 +88,10 @@ def check_reply(
         reply: The LLM's final reply text.
         tool_results: JSON strings from each tool call in this turn.
         policy_texts: Text from policy chunks returned in this turn.
+        user_message: The customer's message for this turn only.
 
     Returns:
-        CheckResult with passed/failed/needs_review lists.
+        CheckResult with passed/failed/needs_review/passed_from_user lists.
     """
     result = CheckResult()
     source = _build_source_text(tool_results, policy_texts)
@@ -100,11 +103,18 @@ def check_reply(
     source_numbers = set(re.findall(r"\b(\d[\d,]*(?:\.\d+)?)\b", source))
     source_numbers_normalized = {_normalize_amount(n) for n in source_numbers}
 
+    # Amounts from the customer's current-turn message are a valid source.
+    user_amounts = set(_extract_amounts(user_message))
+    user_numbers = set(re.findall(r"\b(\d[\d,]*(?:\.\d+)?)\b", user_message))
+    user_numbers_normalized = {_normalize_amount(n) for n in user_numbers}
+
     for m in AMOUNT_RE.finditer(reply):
         raw = m.group(0)
         normalized = _normalize_amount(m.group(1))
         if normalized in source_amounts or normalized in source_numbers_normalized:
             result.passed.append(raw)
+        elif normalized in user_amounts or normalized in user_numbers_normalized:
+            result.passed_from_user.append(raw)
         else:
             result.failed.append(raw)
 

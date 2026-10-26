@@ -87,6 +87,7 @@ class Case:
         placed_orders: list[dict] | None = None,
         history: list[dict] | None = None,
         expect_all_tools: list[str] | None = None,
+        expect_addresses_before_order: bool = False,
         expect_question_contains: str | None = None,
         expect_policy_section: tuple[str, str] | None = None,
         expect_reply_any: list[str] | None = None,
@@ -102,6 +103,8 @@ class Case:
         self.history = history
         # Every tool in this list must be called, in any order.
         self.expect_all_tools = expect_all_tools
+        # view_saved_addresses must be called; if place_order is called, addresses first.
+        self.expect_addresses_before_order = expect_addresses_before_order
         # The search_policies question must contain this word (case-insensitive).
         self.expect_question_contains = expect_question_contains
         # (document_title, section) that search_policies must return.
@@ -286,13 +289,15 @@ CASES: list[Case] = [
     Case(
         name="place order calls addresses first",
         message="Place my order",
-        expect_tool="view_saved_addresses",
+        expect_tool=None,
+        expect_addresses_before_order=True,
         cart_items=[("PHN001", 1)],
     ),
     Case(
         name="place order with one saved address",
         message="Place my order",
-        expect_tool="view_saved_addresses",
+        expect_tool=None,
+        expect_addresses_before_order=True,
         cart_items=[("PHN001", 1)],
         addresses=[{
             "recipient_name": "Rahul", "phone": "9876543210",
@@ -454,14 +459,29 @@ def check_result(
             return False, f"expected section {case.expect_policy_section}, policy search returned {found}"
 
     if case.expect_reply_any:
-        reply = (result.get("reply_text") or "").lower()
+        reply = (result.get("reply_text") or "").lower().replace("’", "'").replace("‘", "'")
         if not any(phrase.lower() in reply for phrase in case.expect_reply_any):
             return False, f"reply does not say it lacks the information: {result.get('reply_text')!r}"
 
     return True, detail
 
 
+def _check_addresses_before_order(tool_calls_seen: list[dict]) -> tuple[bool, str]:
+    names = [tc["name"] for tc in tool_calls_seen]
+    if "view_saved_addresses" not in names:
+        return False, f"view_saved_addresses was not called (called {names})"
+    if "place_order" in names:
+        addr_idx = names.index("view_saved_addresses")
+        order_idx = names.index("place_order")
+        if order_idx < addr_idx:
+            return False, f"place_order was called before view_saved_addresses (called {names})"
+    return True, f"view_saved_addresses called before place_order (called {names})"
+
+
 def _check_tools(case: Case, tool_calls_seen: list[dict]) -> tuple[bool, str]:
+    if case.expect_addresses_before_order:
+        return _check_addresses_before_order(tool_calls_seen)
+
     if case.expect_all_tools:
         names = [tc["name"] for tc in tool_calls_seen]
         missing = [t for t in case.expect_all_tools if t not in names]
@@ -619,7 +639,7 @@ async def run_one(engine, case: Case) -> tuple[bool, str, dict]:
     for pr in _policy_results_log:
         for chunk in pr.get("results", []):
             policy_texts.append(chunk.get("text", ""))
-    reply_check = check_reply(result.get("reply_text", ""), _tool_results_log, policy_texts)
+    reply_check = check_reply(result.get("reply_text", ""), _tool_results_log, policy_texts, case.message)
 
     record = {
         "tools_called": [tc["name"] for tc in _tool_calls_log],
@@ -635,6 +655,7 @@ async def run_one(engine, case: Case) -> tuple[bool, str, dict]:
             "passed": reply_check.passed,
             "failed": reply_check.failed,
             "needs_review": reply_check.needs_review,
+            "passed_from_user": reply_check.passed_from_user,
         },
     }
 
@@ -745,6 +766,8 @@ async def main():
             rc = extra.get("reply_check", "")
             rc_line = f" | reply: {rc}" if rc else ""
             rcd = extra.get("reply_check_detail", {})
+            if rcd.get("passed_from_user"):
+                rc_line += f" FROM_USER: {rcd['passed_from_user']}"
             if rcd.get("failed"):
                 rc_line += f" UNSOURCED: {rcd['failed']}"
             if rcd.get("needs_review"):
@@ -833,10 +856,14 @@ async def main():
 
     # Reply checks
     rc_counts = {"passed": 0, "failed": 0, "needs_review": 0}
+    total_from_user = 0
     for r in all_records:
         rc = r.get("reply_check", "passed")
         rc_counts[rc] = rc_counts.get(rc, 0) + 1
+        total_from_user += len(r.get("reply_check_detail", {}).get("passed_from_user", []))
     print(f"\nReply checks: {rc_counts['passed']} passed, {rc_counts['failed']} failed, {rc_counts['needs_review']} needs review")
+    if total_from_user:
+        print(f"  ({total_from_user} amounts repeated from the customer's message, not checked against the database)")
 
     if failed_cases:
         print(f"\nFailed/flaky cases:")

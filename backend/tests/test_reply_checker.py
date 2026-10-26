@@ -130,6 +130,51 @@ class TestDurationChecks:
         assert any("seven days" in s for s in result.needs_review)
 
 
+class TestUserMessageAmounts:
+    def test_amount_from_user_message_passes(self):
+        """An amount the customer typed (e.g. 'under 15000') is not flagged."""
+        result = check_reply(
+            "Here are phones under ₹15,000.",
+            ['{"products":[{"price":9999},{"price":14999}]}'],
+            [],
+            user_message="Show me phones under 15000",
+        )
+        assert result.status == "passed"
+        assert "₹15,000" in result.passed_from_user
+
+    def test_invented_amount_still_fails(self):
+        """An amount in neither tool results nor user message is still flagged."""
+        result = check_reply(
+            "This phone costs ₹7,777.",
+            ['{"products":[{"price":9999}]}'],
+            [],
+            user_message="Show me phones under 15000",
+        )
+        assert result.status == "failed"
+        assert any("7,777" in a for a in result.failed)
+
+    def test_amount_from_earlier_turn_not_accepted(self):
+        """Only the current turn's user_message counts, not earlier history."""
+        result = check_reply(
+            "Here are phones under ₹15,000.",
+            ['{"products":[{"price":9999}]}'],
+            [],
+            user_message="What about the warranty?",
+        )
+        assert result.status == "failed"
+        assert any("15,000" in a for a in result.failed)
+
+    def test_amount_without_user_message_still_fails(self):
+        """When no user_message is passed, unsourced amounts still fail."""
+        result = check_reply(
+            "Here are phones under ₹15,000.",
+            ['{"products":[{"price":9999}]}'],
+            [],
+        )
+        assert result.status == "failed"
+        assert any("15,000" in a for a in result.failed)
+
+
 class TestEdgeCases:
     def test_no_amounts_or_durations(self):
         result = check_reply(
