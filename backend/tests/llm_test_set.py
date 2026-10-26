@@ -665,7 +665,7 @@ async def run_one(engine, case: Case) -> tuple[bool, str, dict]:
 async def main():
     parser = argparse.ArgumentParser(description="LLM behavior test set")
     parser.add_argument("--runs", type=int, default=3, help="Runs per case (default 3)")
-    parser.add_argument("--case", type=int, default=None, help="Run only case N (1-based)")
+    parser.add_argument("--case", type=int, nargs="+", action="extend", default=None, help="Run only case N (1-based, accepts multiple)")
     args = parser.parse_args()
 
     from tests.db_guard import DatabaseGuardError, validate_test_database_url
@@ -722,12 +722,16 @@ async def main():
         entry["handle"] = _make_logging_handler(name, entry["handle"])
 
     cases = CASES
+    case_indices = None
     if args.case is not None:
-        idx = args.case - 1
-        if idx < 0 or idx >= len(cases):
-            print(f"ERROR: case {args.case} out of range (1-{len(cases)})")
-            sys.exit(1)
-        cases = [cases[idx]]
+        case_indices = []
+        for c in args.case:
+            idx = c - 1
+            if idx < 0 or idx >= len(CASES):
+                print(f"ERROR: case {c} out of range (1-{len(CASES)})")
+                sys.exit(1)
+            case_indices.append((c, idx))
+        cases = [CASES[idx] for _, idx in case_indices]
 
     total = 0
     passed = 0
@@ -738,7 +742,7 @@ async def main():
     print("-" * 70)
 
     for i, case in enumerate(cases):
-        case_num = args.case or (i + 1)
+        case_num = case_indices[i][0] if case_indices else (i + 1)
         case_passes = 0
 
         for run in range(args.runs):

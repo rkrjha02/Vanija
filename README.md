@@ -264,6 +264,7 @@ python tests/policy_retrieval_set.py
 python -m tests.llm_test_set              # all 32 cases, 3 runs each
 python -m tests.llm_test_set --runs 1     # quick single pass
 python -m tests.llm_test_set --case 5     # one case only
+python -m tests.llm_test_set --case 5 17 18  # several cases
 ```
 
 **Calls both Groq (chat LLM) and Gemini (embeddings).** Uses the test database. Each case sets up a starting situation (products, cart, shown lists, history), sends a customer message through the real agent loop, and checks which tool was called, with what arguments. Covers: greetings, product search, cart operations, order flow, policy questions, mixed-language input, ambiguous references, off-topic and rule-breaking attempts.
