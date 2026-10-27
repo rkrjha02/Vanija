@@ -31,3 +31,5 @@ async def send_message(req: ChatRequest, session: AsyncSession = Depends(get_db)
             result = await run_agent_loop(session, req.customer_id, req.message.strip())
     except LockTimeoutError:
         return {"reply_text": LOCK_BUSY_REPLY, "cards": []}
+
+    return result
