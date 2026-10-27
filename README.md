@@ -4,11 +4,11 @@
 
 A WhatsApp-style AI sales agent that understands natural language, retrieves real product data through tools, manages a cart and orders safely, and answers policy questions with RAG. The current sample store sells electronics; the design is not limited to electronics.
 
-**Status:** working locally with the full chat, cart, order and policy flow. Deployment in progress (Cloudflare Pages + Render + Neon).
+**Status:** deployed. Frontend on Cloudflare Pages, backend on Render free tier, database on Neon.
 
 ## Demo
 
-<!-- Add demo GIF or live link here -->
+Live demo: <LINK TO BE ADDED AFTER ABUSE PROTECTIONS ARE IN PLACE>
 
 ## What it does
 
@@ -278,6 +278,41 @@ python -m tests.llm_test_set --case 5 17 18  # several cases
 
 **Results to be added.**
 
+## Deployment
+
+The app is deployed on free tiers of three services.
+
+```mermaid
+graph LR
+    Browser -->|static files| CF[Cloudflare Pages]
+    Browser -->|API requests| Render[Render backend]
+    Render --> Neon[Neon PostgreSQL]
+    Render --> Groq[Groq — chat LLM]
+    Render --> Gemini[Gemini — embeddings]
+```
+
+| Part | Host | Root directory | Build command | Start command |
+|---|---|---|---|---|
+| Frontend | Cloudflare Pages | `frontend/` | `npm run build` (output `dist/`) | — (static) |
+| Backend | Render free web service | `backend/` | `pip install -r requirements.txt` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Database | Neon | — | — | — |
+
+### Environment variables
+
+**Render (backend):** `DATABASE_URL`, `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_BASE_URL`, `GEMINI_API_KEY`, `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `ALLOWED_ORIGINS`, `PYTHON_VERSION`. `TEST_DATABASE_URL` is not set on Render.
+
+**Cloudflare Pages (frontend, build-time):** `VITE_API_BASE_URL` — the Render backend URL. Set in the Cloudflare Pages settings, not in a committed file.
+
+### Deployment order
+
+1. Deploy the backend on Render first.
+2. Deploy the frontend on Cloudflare Pages, setting `VITE_API_BASE_URL` to the Render backend URL.
+3. Add the frontend address to `ALLOWED_ORIGINS` on Render and trigger a redeploy. `ALLOWED_ORIGINS` must be the exact origin: `https`, no trailing slash, no spaces, no wildcard.
+
+### After deployment
+
+Render sets `PORT` automatically (default 10000). `PYTHON_VERSION` is pinned to `3.14.7`. Render auto-deploys from GitHub on push. The database, migrations, seed data and policy ingest are shared with development — nothing needed on Render for these.
+
 ## Known limitations
 
 - **Cards are not redrawn after a reload.** The get-history endpoint returns text only. Product and cart cards from before the reload are not shown.
@@ -286,10 +321,16 @@ python -m tests.llm_test_set --case 5 17 18  # several cases
 - **Reply checker marks word numbers as "needs review".** The automatic reply check cannot reliably convert word-form numbers ("seven days") to digits, so these are flagged for manual review. The checker only validates against this turn's tool results and policy text — the state block and earlier messages are not checked.
 - **Amounts repeated from the customer's message are not checked against the database.** The reply checker only verifies amounts that the assistant introduces.
 - **Sample data only.** The product catalog and policy documents are made-up examples for development. Replace them before any real use.
+- **Free-tier cold starts.** Render free sleeps after 15 minutes without traffic and takes up to about a minute to start again. Neon free suspends compute after 5 minutes idle. These numbers come from the hosts' own documentation and have not been measured by me.
+- **Dev and live share one database.** There is no separate production database. Stock changes during development affect the live app. There is no automated way to reset stock (`seed_data` skips when products exist).
+- **No rate limiting or abuse protections.** The demo link should not be shared widely until these are in place.
+- **Not all flows verified on the live site.** Sending a chat message and getting a reply has been verified on the live site. Policy answers, cart operations, placing and cancelling orders have been verified locally but not yet re-verified on the live site.
 
 ## Roadmap
 
-- Deployment (in progress: Cloudflare Pages + Render + Neon)
+- Abuse protections (rate limiting and other measures, before the demo link is shared publicly)
+- Final LLM test run and the Results section in this README
+- Optional wake-up request on page load (to reduce cold-start wait)
 - WhatsApp Business integration
 - Online payments
 - Authentication

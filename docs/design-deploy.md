@@ -30,7 +30,7 @@ This file records the deployment decisions for the live app. It is referenced by
 - **Build command:** `pip install -r requirements.txt`
 - **Start command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 - **Root directory (Render setting):** `backend/`
-- **Python version:** Pin `PYTHON_VERSION=3.14.7` in Render's environment variables. This is the fully qualified version the tests were developed and run on. This means `requirements.txt` must install successfully on Python 3.14 on Linux; the first Render build will confirm. If a package fails to build a wheel for 3.14 on Linux, we decide then (options: pin an older Python, or find a compatible package version).
+- **Python version:** `PYTHON_VERSION=3.14.7` is pinned in Render's environment variables. This is the fully qualified version the tests were developed and run on. The first Render build installed all packages on Python 3.14.7 on Linux without problems.
 - Render sets the `PORT` environment variable automatically. The start command passes it to uvicorn with `--port $PORT`. No code change needed.
 - No `--reload` in production.
 - `run.py` is for local development only. Render uses the start command directly.
@@ -93,13 +93,24 @@ This is expected on free tiers. The advisory lock connection (`locking.py`) also
 
 ---
 
-## 7. Open items
+## 7. Resolved items
 
-- **Node version on Cloudflare Pages:** Not yet checked. Cloudflare Pages may default to an older Node version; the frontend was developed on Node v24.4.1.
-- **Render `PORT` behavior:** To be confirmed on Render's docs — whether `$PORT` is always set and what its default value is.
-- **Logging setup:** `logging.basicConfig` is currently called only in `run.py`, which is not used in production (`uvicorn app.main:app` does not import `run.py`). All `logger.warning()` and `logger.error()` calls in the app go to no handler under the production start command. Fix needed: add `logging.basicConfig(level=logging.INFO)` in `main.py`. Not yet implemented — waiting for approval.
-- **No stock reset method exists:** `seed_data.py` skips when products already exist. There is no way to reset stock to starting values without manual SQL. If dev testing reduces stock, it affects the live app (shared database).
-- **LLM test suite and the shared database:** The LLM test set (`tests/llm_test_set.py`) uses `TEST_DATABASE_URL` (separate), so it does not write to the shared database. The policy retrieval test set (`tests/policy_retrieval_set.py`) reads from `DATABASE_URL` (shared) but does not write to it.
-- **Rate limits:** Not decided. No rate limiting is configured on the backend.
-- **Wake-up endpoint:** Not decided. No mechanism to pre-warm Render or Neon after idle.
+- **Node version on Cloudflare Pages:** Cloudflare's build succeeded with its default Node version. No action needed.
+- **Render `PORT` behavior:** Confirmed on Render's docs. Render always sets `PORT` (default 10000).
+- **Logging setup:** Fixed. `logging.basicConfig` is now in `main.py` with INFO level, timestamp, level and logger name. `httpx` and `httpcore` loggers are set to WARNING so request URLs (which can contain the Gemini API key as a query parameter) are not logged.
+- **POST /chat returning null:** Fixed. `send_message` in `api/chat.py` was missing `return result` on the happy path. The function fell off the end, returning `None`, which FastAPI serialized as `null`.
+
+## 8. Open items
+
+- **Unverified live flows:** Policy answers, cart operations, placing and cancelling orders have been verified locally but not yet re-verified on the live site.
+- **Abuse protections:** No rate limiting or other abuse protections are configured. Deferred by decision because only the developer uses the link. To be added before the link is shared publicly.
+- **Wake-up request:** No mechanism to pre-warm Render or Neon after idle. Optional improvement.
+- **No stock reset method:** `seed_data.py` skips when products already exist. There is no automated way to reset stock to starting values. Dev testing that reduces stock affects the live app (shared database).
 - **`lock_wait_seconds`:** Not decided. Current default is 90 seconds (`config.py`).
+- **Final LLM test run:** The full LLM behavior test set has not been re-run since the deployment changes. The Results section in the README is pending.
+
+## 9. Lessons from the first deployment
+
+1. **Logging was only in `run.py`.** Production starts with `uvicorn app.main:app`, which does not import `run.py`. All `logger.error()` and `logger.warning()` calls went to no handler. Fixed by adding `logging.basicConfig` to `main.py`.
+2. **POST /chat returned `null`.** The `send_message` handler set `result = await run_agent_loop(...)` but never returned it. The function fell off the end and Python returned `None`. The reply was saved in the database (it showed in history after a reload) but the HTTP response was `null`. Fixed by adding `return result`.
+3. **ALLOWED_ORIGINS trailing slash caused CORS failure.** Setting `ALLOWED_ORIGINS=https://vanija.pages.dev/` (with a trailing slash) did not match the browser's `Origin` header (which has no trailing slash). The exact origin must be used: `https`, no trailing slash, no spaces, no wildcard.
