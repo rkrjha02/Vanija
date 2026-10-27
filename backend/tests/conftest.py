@@ -9,25 +9,32 @@ from app.config import settings
 from app.data.models import Base, Product
 from tests.db_guard import DatabaseGuardError, validate_test_database_url
 
+_TEST_EMBEDDING = [0.1] * settings.embedding_dimensions
+
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 TEST_PRODUCTS = [
     Product(id="PHN001", name="Phone A", category="phone", brand="Samsung",
             price=9999, stock=10, description="A budget phone",
-            specs={"ram_gb": 4, "battery_mah": 5000, "camera_mp": 50, "storage_gb": 128}),
+            specs={"ram_gb": 4, "battery_mah": 5000, "camera_mp": 50, "storage_gb": 128},
+            embedding=_TEST_EMBEDDING),
     Product(id="PHN002", name="Phone B", category="phone", brand="Xiaomi",
             price=14999, stock=5, description="A mid-range phone",
-            specs={"ram_gb": 6, "battery_mah": 5000, "camera_mp": 108, "storage_gb": 128}),
+            specs={"ram_gb": 6, "battery_mah": 5000, "camera_mp": 108, "storage_gb": 128},
+            embedding=_TEST_EMBEDDING),
     Product(id="PHN003", name="Phone C", category="phone", brand="Samsung",
             price=19999, stock=0, description="Out of stock phone",
-            specs={"ram_gb": 8, "battery_mah": 4500, "camera_mp": 50, "storage_gb": 256}),
+            specs={"ram_gb": 8, "battery_mah": 4500, "camera_mp": 50, "storage_gb": 256},
+            embedding=_TEST_EMBEDDING),
     Product(id="LAP001", name="Laptop A", category="laptop", brand="HP",
             price=45999, stock=8, description="A work laptop",
-            specs={"ram_gb": 16, "storage_gb": 512, "display_inch": 15.6, "processor": "Intel i5"}),
+            specs={"ram_gb": 16, "storage_gb": 512, "display_inch": 15.6, "processor": "Intel i5"},
+            embedding=_TEST_EMBEDDING),
     Product(id="HPH001", name="Headphone A", category="headphone", brand="Sony",
             price=2999, stock=20, description="Wireless headphones",
-            specs={"battery_hours": 30, "noise_cancelling": True, "connectivity": "Bluetooth 5.0"}),
+            specs={"battery_hours": 30, "noise_cancelling": True, "connectivity": "Bluetooth 5.0"},
+            embedding=_TEST_EMBEDDING),
     Product(id="PHN099", name="Inactive Phone", category="phone", brand="Test",
             price=5000, stock=10, description="This product is inactive",
             is_active=False,

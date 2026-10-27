@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ApiError, sendMessage, startSession } from './api'
 import { STORE_NAME, STORE_TAGLINE, SUGGESTIONS } from './brand'
 import { CardView } from './components/CardView'
-import { AlertIcon, CartIcon, SendIcon, SparkIcon } from './components/Icons'
+import { AlertIcon, CartIcon, SendIcon, SettingsIcon, SparkIcon } from './components/Icons'
 import { RichText } from './components/RichText'
 import { problemText } from './format'
 import type { ButtonResult, Card, ChatMessage } from './types'
@@ -112,16 +112,26 @@ export default function App() {
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={() => void send("What's in my cart?")}
-          disabled={!ready || sending}
-          aria-label="View cart"
-          title="View cart"
-        >
-          <CartIcon />
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => void send("What's in my cart?")}
+            disabled={!ready || sending}
+            aria-label="View cart"
+            title="View cart"
+          >
+            <CartIcon size={18} />
+          </button>
+          <a
+            href="/admin"
+            className="icon-button"
+            aria-label="Admin panel"
+            title="Admin panel"
+          >
+            <SettingsIcon size={18} />
+          </a>
+        </div>
       </header>
 
       <main className="messages" ref={scrollRef}>

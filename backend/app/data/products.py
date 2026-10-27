@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.data.models import Product
 
 KEY_SPECS = {
@@ -49,50 +50,45 @@ async def get_categories(session: AsyncSession) -> list[str]:
 
 async def search_products(
     session: AsyncSession,
-    category: str,
+    query_embedding: list[float],
+    category: str | None = None,
     min_price: int | None = None,
     max_price: int | None = None,
     brand: str | None = None,
-    keyword: str | None = None,
-    sort_by: str = "price_low_to_high",
     limit: int = 5,
+    min_similarity: float | None = None,
 ) -> dict:
-    query = select(Product).where(
+    if min_similarity is None:
+        min_similarity = settings.product_min_similarity
+
+    distance = Product.embedding.cosine_distance(query_embedding)
+    query = select(Product, (1 - distance).label("similarity")).where(
         Product.is_active.is_(True),
-        Product.category == category,
+        Product.embedding.isnot(None),
     )
 
+    if category is not None:
+        query = query.where(func.lower(Product.category) == category.lower())
     if min_price is not None:
         query = query.where(Product.price >= min_price)
     if max_price is not None:
         query = query.where(Product.price <= max_price)
     if brand:
         query = query.where(func.lower(Product.brand) == brand.lower())
-    if keyword:
-        pattern = f"%{keyword}%"
-        query = query.where(
-            Product.name.ilike(pattern) | Product.description.ilike(pattern)
-        )
 
-    count_query = select(func.count()).select_from(query.subquery())
-    total = (await session.execute(count_query)).scalar() or 0
+    query = query.where(distance <= 1 - min_similarity)
+    query = query.order_by(distance).limit(limit)
 
-    if sort_by == "price_high_to_low":
-        query = query.order_by(Product.price.desc())
-    else:
-        query = query.order_by(Product.price.asc())
-
-    query = query.limit(limit)
     result = await session.execute(query)
-    rows = result.scalars().all()
+    rows = result.all()
 
     products = []
-    for i, row in enumerate(rows, start=1):
+    for i, (row, similarity) in enumerate(rows, start=1):
         product = _product_to_dict(row)
         product["position"] = i
         products.append(product)
 
-    return {"total_matches": total, "products": products}
+    return {"total_matches": len(products), "products": products}
 
 
 async def get_product_details(

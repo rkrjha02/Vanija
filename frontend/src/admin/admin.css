@@ -1,0 +1,475 @@
+/* ---------- Admin layout ---------- */
+
+.admin {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px max(16px, calc((100% - 1100px) / 2));
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(140%) blur(16px);
+  -webkit-backdrop-filter: saturate(140%) blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-header h1 {
+  font-size: 1.15rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.admin-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-body {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 16px;
+}
+
+/* ---------- Toolbar ---------- */
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.admin-search {
+  flex: 1;
+  min-width: 180px;
+  max-width: 300px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 0.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-search:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.admin-select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.admin-select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ---------- Table ---------- */
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 14px 16px;
+  font-weight: 620;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.admin-table th:hover {
+  color: var(--text);
+}
+
+.admin-table th .sort-arrow {
+  margin-left: 4px;
+  font-size: 0.7rem;
+}
+
+.admin-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr {
+  transition: background 0.15s;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.admin-table tr.inactive td {
+  opacity: 0.45;
+}
+
+.admin-table tr.inactive:hover td {
+  opacity: 0.65;
+}
+
+.admin-table .actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* ---------- Badges ---------- */
+
+.badge-ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.badge-bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.badge-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.badge-neutral {
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+
+/* ---------- Pagination ---------- */
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.admin-pagination-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---------- Form ---------- */
+
+.admin-form {
+  max-width: 680px;
+}
+
+.admin-form h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.admin-form .field {
+  margin-bottom: 20px;
+}
+
+.admin-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.admin-form input[type='text'],
+.admin-form input[type='number'],
+.admin-form textarea,
+.admin-form select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 0.92rem;
+  color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-form input:focus,
+.admin-form textarea:focus,
+.admin-form select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.admin-form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.admin-form .form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.admin-form .form-error {
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bad-soft);
+  color: var(--bad);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* ---------- Tags input ---------- */
+
+.tags-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: text;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.tags-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.tags-input .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 550;
+}
+
+.tags-input .tag button {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.tags-input .tag button:hover {
+  opacity: 1;
+}
+
+.tags-input input {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.9rem;
+  padding: 4px 0;
+}
+
+/* ---------- Specs editor ---------- */
+
+.specs-editor .spec-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.specs-editor .spec-row input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 0.88rem;
+  color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.specs-editor .spec-row input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ---------- Modal overlay ---------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  animation: modal-bg 0.25s var(--ease-out);
+}
+
+@keyframes modal-bg {
+  from { opacity: 0; }
+}
+
+.modal {
+  width: 100%;
+  max-width: 480px;
+  padding: 28px;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: modal-up 0.3s var(--ease);
+}
+
+@keyframes modal-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+.modal h2 {
+  margin: 0 0 16px;
+  font-size: 1.15rem;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.modal .modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* ---------- File upload area ---------- */
+
+.upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
+  text-align: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-area:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.upload-area input[type='file'] {
+  display: none;
+}
+
+.upload-result {
+  margin-top: 16px;
+  font-size: 0.9rem;
+}
+
+.upload-result .success {
+  color: var(--ok);
+  font-weight: 620;
+}
+
+.upload-errors {
+  margin-top: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 0.84rem;
+  color: var(--bad);
+}
+
+.upload-errors li {
+  margin-bottom: 4px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 768px) {
+  .admin-header {
+    padding: 14px 16px;
+  }
+
+  .admin-toolbar {
+    gap: 8px;
+  }
+
+  .admin-search {
+    min-width: 140px;
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .admin-table-wrap {
+    border-radius: var(--radius-lg);
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 10px 12px;
+  }
+
+  .modal {
+    padding: 22px;
+    border-radius: var(--radius-lg);
+  }
+}

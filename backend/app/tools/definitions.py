@@ -31,44 +31,37 @@ def _tool_definitions() -> list[dict]:
             "function": {
                 "name": "search_products",
                 "description": (
-                    "Search for products by category. Use when the customer asks to see, find, or browse products. "
-                    "Category is required. Not for store policies such as returns or warranty."
+                    "Search for products using a natural language query. "
+                    "Pass the customer's intent as a natural language query. "
+                    "Only include brand, category, or price filters when the customer explicitly mentions them. "
+                    "Not for store policies such as returns or warranty."
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "category": {
+                        "query": {
                             "type": "string",
-                            "enum": VALID_CATEGORIES if VALID_CATEGORIES else ["phone", "laptop", "headphone"],
-                            "description": f"Product category. Must be one of: {category_desc}.",
-                        },
-                        "min_price": {
-                            "type": "integer",
-                            "description": "Minimum price in rupees.",
-                        },
-                        "max_price": {
-                            "type": "integer",
-                            "description": "Maximum price in rupees.",
+                            "description": "The customer's search intent in natural language, e.g. 'wireless headphones for travel with good battery life'.",
                         },
                         "brand": {
                             "type": "string",
-                            "description": "Filter by brand name (case-insensitive).",
+                            "description": "Filter by brand name, only when the customer explicitly names a brand.",
                         },
-                        "keyword": {
+                        "category": {
                             "type": "string",
-                            "description": "Search keyword matched against product name and description.",
+                            "enum": VALID_CATEGORIES if VALID_CATEGORIES else ["phone", "laptop", "headphone"],
+                            "description": f"Product category, only when the customer explicitly names one. Must be one of: {category_desc}.",
                         },
-                        "sort_by": {
-                            "type": "string",
-                            "enum": ["price_low_to_high", "price_high_to_low"],
-                            "description": "Sort order. Default is price_low_to_high.",
-                        },
-                        "limit": {
+                        "min_price": {
                             "type": "integer",
-                            "description": "Number of results to return, 1 to 10. Default is 5.",
+                            "description": "Minimum price in rupees, only when the customer states a minimum.",
+                        },
+                        "max_price": {
+                            "type": "integer",
+                            "description": "Maximum price in rupees, only when the customer states a maximum.",
                         },
                     },
-                    "required": ["category"],
+                    "required": ["query"],
                 },
             },
         },

@@ -1,9 +1,9 @@
 /* ---------- Shared card shell ---------- */
 
 .card {
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-md);
   animation: rise 0.4s var(--ease) both;
@@ -11,21 +11,22 @@
 
 .card.emphasis {
   box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--border));
 }
 
 .card-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .card-head-icon {
   flex: none;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
@@ -38,7 +39,7 @@
 
 .card-eyebrow {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -50,7 +51,8 @@
 }
 
 .card-title.lg {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
 }
 
 .card-meta {
@@ -62,11 +64,11 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .card-cta {
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 /* ---------- Badges and chips ---------- */
@@ -75,7 +77,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
   font-size: 0.72rem;
   font-weight: 600;
@@ -115,11 +117,11 @@
 }
 
 .spec-chips li {
-  padding: 3px 8px;
-  border-radius: 7px;
+  padding: 3px 9px;
+  border-radius: var(--radius-xs);
   background: var(--surface-2);
   color: var(--text-muted);
-  font-size: 0.74rem;
+  font-size: 0.73rem;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -142,7 +144,7 @@
 .product-rail {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 214px;
+  grid-auto-columns: 220px;
   gap: 12px;
   margin: -6px -16px 0;
   padding: 6px 16px 14px;
@@ -155,7 +157,7 @@
 }
 
 .product-rail.single {
-  grid-auto-columns: minmax(214px, 260px);
+  grid-auto-columns: minmax(220px, 268px);
 }
 
 .product-tile {
@@ -163,49 +165,57 @@
   flex-direction: column;
   scroll-snap-align: start;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   animation: rise 0.45s var(--ease) both;
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s;
 }
 
-.product-tile:nth-child(2) { animation-delay: 0.05s; }
-.product-tile:nth-child(3) { animation-delay: 0.1s; }
-.product-tile:nth-child(4) { animation-delay: 0.15s; }
-.product-tile:nth-child(n + 5) { animation-delay: 0.2s; }
+.product-tile:nth-child(2) { animation-delay: 0.06s; }
+.product-tile:nth-child(3) { animation-delay: 0.12s; }
+.product-tile:nth-child(4) { animation-delay: 0.18s; }
+.product-tile:nth-child(n + 5) { animation-delay: 0.22s; }
 
 @media (hover: hover) {
   .product-tile:hover {
-    transform: translateY(-3px);
+    transform: translateY(-4px);
     border-color: var(--border-strong);
     box-shadow: var(--shadow-lg);
   }
 }
 
 .product-tile.unavailable .product-media svg {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 
 .product-media {
   position: relative;
   display: grid;
   place-items: center;
-  height: 132px;
+  height: 136px;
   color: var(--text);
   background:
-    radial-gradient(120% 90% at 30% 20%, rgba(255, 255, 255, 0.65), transparent 60%),
+    radial-gradient(120% 90% at 30% 20%, rgba(255, 255, 255, 0.6), transparent 60%),
     var(--media-tint, var(--surface-2));
 }
 
 .product-media svg {
-  opacity: 0.78;
+  opacity: 0.72;
+  transition: opacity 0.2s, transform 0.3s var(--ease);
 }
 
-.product-media.cat-phone { --media-tint: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
-.product-media.cat-laptop { --media-tint: color-mix(in srgb, #5b6ee1 11%, var(--surface-2)); }
-.product-media.cat-headphone { --media-tint: color-mix(in srgb, #c27a2c 12%, var(--surface-2)); }
+@media (hover: hover) {
+  .product-tile:hover .product-media svg {
+    opacity: 0.88;
+    transform: scale(1.06);
+  }
+}
+
+.product-media.cat-phone { --media-tint: color-mix(in srgb, var(--accent) 8%, var(--surface-2)); }
+.product-media.cat-laptop { --media-tint: color-mix(in srgb, #5b6ee1 9%, var(--surface-2)); }
+.product-media.cat-headphone { --media-tint: color-mix(in srgb, #c27a2c 10%, var(--surface-2)); }
 
 :root[data-theme='dark'] .product-media {
   background: var(--media-tint, var(--surface-2));
@@ -229,7 +239,7 @@
   border-radius: var(--radius-pill);
   background: var(--ink);
   color: var(--ink-text);
-  font-size: 0.75rem;
+  font-size: 0.73rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -241,9 +251,9 @@
 }
 
 .media-badge .badge {
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  backdrop-filter: blur(6px);
-  box-shadow: var(--shadow-sm);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-xs);
 }
 
 .product-body {
@@ -251,12 +261,12 @@
   flex: 1;
   flex-direction: column;
   gap: 6px;
-  padding: 14px;
+  padding: 14px 16px 16px;
 }
 
 .product-brand {
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -268,9 +278,9 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 2.7em;
-  font-weight: 600;
+  font-weight: 620;
   line-height: 1.35;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
 }
 
 .product-body .spec-chips {
@@ -281,22 +291,22 @@
   margin-top: auto;
   padding-top: 4px;
   font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 720;
+  letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
 }
 
 .product-price.lg {
   margin: 0;
   padding: 0;
-  font-size: 1.5rem;
+  font-size: 1.55rem;
 }
 
 .product-actions {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .missing-note {
@@ -324,14 +334,14 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
-  padding: 20px;
+  padding: 22px;
 }
 
 .detail-name {
   margin: 0;
   font-size: 1.2rem;
-  font-weight: 650;
-  letter-spacing: -0.015em;
+  font-weight: 680;
+  letter-spacing: -0.02em;
   line-height: 1.3;
 }
 
@@ -346,6 +356,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: 0.92rem;
+  line-height: 1.55;
 }
 
 .detail-body .btn {
@@ -375,8 +386,8 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-muted);
@@ -392,7 +403,7 @@
 }
 
 .line-name {
-  font-weight: 550;
+  font-weight: 570;
 }
 
 .line-sub {
@@ -412,7 +423,7 @@
 .line-total,
 .line-qty {
   flex: none;
-  font-weight: 600;
+  font-weight: 620;
   font-variant-numeric: tabular-nums;
 }
 
@@ -425,16 +436,16 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 4px;
-  padding-top: 14px;
+  margin-top: 6px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
-  font-weight: 550;
+  font-weight: 570;
 }
 
 .total-amount {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.3rem;
+  font-weight: 720;
+  letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -442,8 +453,8 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: 16px;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   font-size: 0.86rem;
 }
@@ -464,9 +475,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin-top: 16px;
-  padding: 14px;
-  border-radius: var(--radius-md);
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
   background: var(--surface-2);
 }
 
@@ -479,24 +490,24 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   background: var(--surface);
   color: var(--text-muted);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
 }
 
 .info-label {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
 
 .info-strong {
-  font-weight: 550;
+  font-weight: 570;
 }
 
 .info-text {
@@ -509,7 +520,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 14px;
   font-size: 0.78rem;
   color: var(--text-muted);
 }
@@ -521,16 +532,16 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 8px 0 16px;
+  padding: 10px 0 18px;
   text-align: center;
 }
 
 .result-icon {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  margin-bottom: 8px;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 10px;
   border-radius: 50%;
   animation: pop 0.5s var(--ease) both 0.1s;
 }
@@ -538,7 +549,7 @@
 .card.result.ok .result-icon {
   background: var(--ok-soft);
   color: var(--ok);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--ok-soft) 50%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--ok-soft) 45%, transparent);
 }
 
 .card.result.cancelled .result-icon {
@@ -553,21 +564,22 @@
 }
 
 .result-title {
-  font-size: 1.15rem;
-  font-weight: 650;
-  letter-spacing: -0.015em;
+  font-size: 1.2rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
 }
 
 .result-text {
   max-width: 320px;
   font-size: 0.9rem;
   color: var(--text-muted);
+  line-height: 1.5;
 }
 
 @keyframes pop {
   from {
     opacity: 0;
-    transform: scale(0.6);
+    transform: scale(0.5);
   }
   to {
     opacity: 1;
@@ -586,6 +598,7 @@
 @media (max-width: 560px) {
   .card {
     padding: 16px;
+    border-radius: var(--radius-lg);
   }
 
   .product-rail {
@@ -598,5 +611,9 @@
 
   .product-media.detail {
     min-height: 160px;
+  }
+
+  .product-tile {
+    border-radius: var(--radius-lg);
   }
 }

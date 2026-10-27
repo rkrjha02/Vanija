@@ -7,22 +7,20 @@ from app.data.products import (
     get_product_details as db_get_product_details,
     search_products as db_search_products,
 )
+from app.embeddings import embed_question
 from app.tools.definitions import VALID_CATEGORIES
 
 logger = logging.getLogger(__name__)
 
 
 def validate_search_products(args: dict) -> str | None:
-    category = args.get("category")
-    if not category:
-        return "category is required"
-    if category not in VALID_CATEGORIES:
-        return f"category must be one of: {', '.join(VALID_CATEGORIES)}"
+    query = args.get("query")
+    if not isinstance(query, str) or not query.strip():
+        return "query is required"
 
-    limit = args.get("limit")
-    if limit is not None:
-        if not isinstance(limit, int) or limit < 1 or limit > 10:
-            return "limit must be between 1 and 10"
+    category = args.get("category")
+    if category is not None and category not in VALID_CATEGORIES:
+        return f"category must be one of: {', '.join(VALID_CATEGORIES)}"
 
     min_price = args.get("min_price")
     if min_price is not None and (not isinstance(min_price, int) or min_price < 0):
@@ -31,10 +29,6 @@ def validate_search_products(args: dict) -> str | None:
     max_price = args.get("max_price")
     if max_price is not None and (not isinstance(max_price, int) or max_price < 0):
         return "max_price must be a non-negative integer"
-
-    sort_by = args.get("sort_by")
-    if sort_by and sort_by not in ("price_low_to_high", "price_high_to_low"):
-        return "sort_by must be price_low_to_high or price_high_to_low"
 
     return None
 
@@ -51,15 +45,16 @@ def validate_get_product_details(args: dict) -> str | None:
 
 
 async def handle_search_products(session: AsyncSession, args: dict, customer_id: str = "") -> dict:
+    query_embedding = await embed_question(args["query"].strip())
+
     result = await db_search_products(
         session=session,
-        category=args["category"],
+        query_embedding=query_embedding,
+        category=args.get("category"),
         min_price=args.get("min_price"),
         max_price=args.get("max_price"),
         brand=args.get("brand"),
-        keyword=args.get("keyword"),
-        sort_by=args.get("sort_by", "price_low_to_high"),
-        limit=args.get("limit", settings.default_search_limit),
+        limit=settings.default_search_limit,
     )
 
     if not result["products"]:
@@ -90,15 +85,21 @@ TOOL_HANDLERS = {
 
 
 def build_search_label(args: dict) -> str:
-    parts = [f"{args['category']}s"]
+    parts = []
+    if args.get("category"):
+        parts.append(f"{args['category']}s")
     if args.get("brand"):
-        parts = [f"{args['brand']} {parts[0]}"]
+        if parts:
+            parts = [f"{args['brand']} {parts[0]}"]
+        else:
+            parts.append(args["brand"])
     if args.get("max_price") and args.get("min_price"):
         parts.append(f"₹{args['min_price']:,}–₹{args['max_price']:,}")
     elif args.get("max_price"):
         parts.append(f"under ₹{args['max_price']:,}")
     elif args.get("min_price"):
         parts.append(f"above ₹{args['min_price']:,}")
-    if args.get("keyword"):
-        parts.append(f'"{args["keyword"]}"')
+    if not parts:
+        query = args.get("query", "")
+        parts.append(query[:40] if len(query) > 40 else query)
     return " ".join(parts)

@@ -14,7 +14,7 @@ from sqlalchemy import (
     text,
 )
 from pgvector.sqlalchemy import Vector
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import settings
@@ -51,6 +51,12 @@ class Product(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     specs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    short_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tags: Mapped[list | None] = mapped_column(ARRAY(Text), nullable=True)
+    embedding: Mapped[list | None] = mapped_column(
+        Vector(settings.embedding_dimensions), nullable=True
+    )
+    embedding_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Conversation(Base):

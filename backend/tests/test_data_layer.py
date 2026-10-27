@@ -1,9 +1,12 @@
 import pytest
 
+from app.config import settings
 from app.data.customers import create_customer, get_customer
 from app.data.products import get_categories, get_product_details, search_products
 from app.data.conversations import get_or_create_conversation, update_shown_products
 from app.data.messages import get_recent_messages, get_turn_messages, save_message
+
+_TEST_EMBEDDING = [0.1] * settings.embedding_dimensions
 
 
 class TestCustomers:
@@ -27,50 +30,56 @@ class TestProducts:
         assert "headphone" in cats
 
     async def test_search_by_category(self, seeded_session):
-        result = await search_products(seeded_session, category="phone")
+        result = await search_products(
+            seeded_session, query_embedding=_TEST_EMBEDDING, category="phone"
+        )
         assert result["total_matches"] >= 2
         for p in result["products"]:
             assert p["category"] == "phone"
 
     async def test_search_max_price(self, seeded_session):
         result = await search_products(
-            seeded_session, category="phone", max_price=10000
+            seeded_session, query_embedding=_TEST_EMBEDDING,
+            category="phone", max_price=10000,
         )
         for p in result["products"]:
             assert p["price"] <= 10000
 
     async def test_search_brand(self, seeded_session):
         result = await search_products(
-            seeded_session, category="phone", brand="Samsung"
+            seeded_session, query_embedding=_TEST_EMBEDDING,
+            category="phone", brand="Samsung",
         )
         for p in result["products"]:
             assert p["brand"].lower() == "samsung"
 
     async def test_search_excludes_inactive(self, seeded_session):
-        result = await search_products(seeded_session, category="phone")
+        result = await search_products(
+            seeded_session, query_embedding=_TEST_EMBEDDING, category="phone"
+        )
         ids = [p["id"] for p in result["products"]]
         assert "PHN099" not in ids
 
     async def test_search_no_match(self, seeded_session):
         result = await search_products(
-            seeded_session, category="phone", max_price=1
+            seeded_session, query_embedding=_TEST_EMBEDDING,
+            category="phone", max_price=1,
         )
         assert result["total_matches"] == 0
         assert result["products"] == []
 
-    async def test_search_sort_high_to_low(self, seeded_session):
+    async def test_search_without_category(self, seeded_session):
         result = await search_products(
-            seeded_session, category="phone", sort_by="price_high_to_low"
+            seeded_session, query_embedding=_TEST_EMBEDDING
         )
-        prices = [p["price"] for p in result["products"]]
-        assert prices == sorted(prices, reverse=True)
+        categories = {p["category"] for p in result["products"]}
+        assert len(categories) > 1
 
     async def test_search_limit(self, seeded_session):
         result = await search_products(
-            seeded_session, category="phone", limit=1
+            seeded_session, query_embedding=_TEST_EMBEDDING, limit=1
         )
         assert len(result["products"]) == 1
-        assert result["total_matches"] >= 2
 
     async def test_get_details(self, seeded_session):
         details = await get_product_details(seeded_session, ["PHN001"])

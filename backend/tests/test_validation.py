@@ -12,7 +12,7 @@ def test_unknown_tool():
 
 def test_strips_customer_id():
     args, error = validate_tool_call(
-        "search_products", {"category": "phone", "customer_id": "abc123"}
+        "search_products", {"query": "budget phone", "customer_id": "abc123"}
     )
     assert error is None
     assert "customer_id" not in args
@@ -20,10 +20,10 @@ def test_strips_customer_id():
 
 def test_null_optional_arguments_are_dropped():
     args, error = validate_tool_call(
-        "search_products", {"category": "phone", "limit": None, "brand": None}
+        "search_products", {"query": "budget phone", "category": None, "brand": None}
     )
     assert error is None
-    assert args == {"category": "phone"}
+    assert args == {"query": "budget phone"}
 
 
 def test_cancel_order_with_null_id_is_valid():
@@ -37,34 +37,29 @@ def test_optional_schema_fields_accept_null():
 
     tools = {t["function"]["name"]: t["function"]["parameters"] for t in get_tool_definitions()}
     assert tools["cancel_order"]["properties"]["order_id"]["type"] == ["integer", "null"]
-    assert tools["search_products"]["properties"]["sort_by"]["enum"][-1] is None
-    assert tools["search_products"]["properties"]["category"]["type"] == "string"
+    assert tools["search_products"]["properties"]["brand"]["type"] == ["string", "null"]
+    assert tools["search_products"]["properties"]["query"]["type"] == "string"
     assert tools["add_to_cart"]["properties"]["product_id"]["type"] == "string"
 
 
 def test_search_valid():
     args, error = validate_tool_call(
-        "search_products", {"category": "phone", "max_price": 15000}
+        "search_products", {"query": "budget phone", "max_price": 15000}
     )
     assert error is None
-    assert args["category"] == "phone"
+    assert args["query"] == "budget phone"
 
 
-def test_search_missing_category():
+def test_search_missing_query():
     _, error = validate_tool_call("search_products", {})
-    assert "category" in error
+    assert "query" in error
 
 
 def test_search_invalid_category():
-    _, error = validate_tool_call("search_products", {"category": "tablet"})
-    assert "must be one of" in error
-
-
-def test_search_invalid_limit():
     _, error = validate_tool_call(
-        "search_products", {"category": "phone", "limit": 99}
+        "search_products", {"query": "phone", "category": "tablet"}
     )
-    assert "limit" in error
+    assert "must be one of" in error
 
 
 def test_details_valid():
