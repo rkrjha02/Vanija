@@ -77,5 +77,8 @@ class Settings(BaseSettings):
     policy_min_similarity: float = 0.65
     policy_question_max_length: int = 300
 
+    # CORS
+    allowed_origins: str = ""
+
 
 settings = Settings()

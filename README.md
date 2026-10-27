@@ -4,7 +4,7 @@
 
 A WhatsApp-style AI sales agent that understands natural language, retrieves real product data through tools, manages a cart and orders safely, and answers policy questions with RAG. The current sample store sells electronics; the design is not limited to electronics.
 
-**Status:** working locally with the full chat, cart, order and policy flow. Not yet deployed.
+**Status:** working locally with the full chat, cart, order and policy flow. Deployment in progress (Cloudflare Pages + Render + Neon).
 
 ## Demo
 
@@ -197,6 +197,13 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values:
 | `EMBEDDING_PROVIDER` | `gemini` |
 | `EMBEDDING_MODEL` | `gemini-embedding-2` |
 | `EMBEDDING_DIMENSIONS` | `768` |
+| `ALLOWED_ORIGINS` | Comma-separated production origins for CORS (e.g. `https://vanija.pages.dev`). Local development origins (`localhost:5173`, `localhost:3000`) are always included. Leave empty for local-only use. |
+
+**Frontend environment variable** (set in Cloudflare Pages, not in a committed file):
+
+| Setting | Notes |
+|---|---|
+| `VITE_API_BASE_URL` | The backend URL for the production frontend (e.g. `https://vanija-backend.onrender.com`). When not set, the frontend uses the Vite dev proxy (`/api`), so local development needs no change. |
 
 > **Warning:** If `DATABASE_URL` uses a pooled Neon address (host contains `-pooler`) or does not start with `postgresql+psycopg://`, the app will fail. The app validates this at startup and gives a clear error if the scheme or host is wrong.
 
@@ -239,7 +246,7 @@ All backend test commands run from `backend/` with the virtual environment activ
 pytest
 ```
 
-Requires `TEST_DATABASE_URL` in `.env`. These tests use a separate test database and **never call the LLM or embedding API** — all external calls are mocked. 15 test files covering: data layer, tools (product, cart, order, policy), agent validation, state block, provider adapter, buttons/confirm logic, embedding layer, chunking, ingest, and policy retrieval.
+Requires `TEST_DATABASE_URL` in `.env`. These tests use a separate test database and **never call the LLM or embedding API** — all external calls are mocked. 16 test files covering: data layer, tools (product, cart, order, policy), agent validation, state block, provider adapter, buttons/confirm logic, embedding layer, chunking, ingest, policy retrieval, and CORS configuration.
 
 ### Code tests — frontend (Vitest)
 
@@ -248,7 +255,7 @@ cd frontend
 npm test
 ```
 
-3 test files covering: rupee formatting and spec labels (`format.test.ts`), card rendering for products, cart, order confirmation, cancel and order result (`cards.test.tsx`), and rich text rendering with XSS prevention (`RichText.test.tsx`). No external service calls.
+4 test files covering: rupee formatting and spec labels (`format.test.ts`), card rendering for products, cart, order confirmation, cancel and order result (`cards.test.tsx`), rich text rendering with XSS prevention (`RichText.test.tsx`), and `resolveBaseUrl` for the deployment base URL (`api.test.ts`). No external service calls.
 
 ### Retrieval tests
 
@@ -282,12 +289,12 @@ python -m tests.llm_test_set --case 5 17 18  # several cases
 
 ## Roadmap
 
+- Deployment (in progress: Cloudflare Pages + Render + Neon)
 - WhatsApp Business integration
 - Online payments
 - Authentication
 - Order status and shipping tracking
 - Product management
-- Deployment
 
 ## Notes
 

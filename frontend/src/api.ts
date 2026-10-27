@@ -1,6 +1,11 @@
 import type { ButtonResult, ChatReply, HistoryMessage } from './types'
 
-const BASE_URL = '/api'
+export function resolveBaseUrl(envValue: string | undefined): string {
+  if (!envValue) return '/api'
+  return envValue.replace(/\/+$/, '')
+}
+
+const BASE_URL = resolveBaseUrl(import.meta.env.VITE_API_BASE_URL)
 // Longer than the slowest chat turn (5 LLM rounds plus retries).
 const REQUEST_TIMEOUT_MS = 180_000
 const CUSTOMER_ID_KEY = 'electronics-agent-customer-id'

@@ -2,6 +2,7 @@
 
 The full design is in @docs/design.md. Read it at the start of every session. Everything in it is LOCKED for Phase 1.
 Phase 2, part 1 (policy questions) is in @docs/design-rag.md. Read it too. Where it conflicts with design.md, design-rag.md wins.
+Deployment decisions are in @docs/design-deploy.md. Read it too.
 
 ## Who I am working with
 - A beginner in AI engineering with basic Python and good SQL knowledge, who wants to LEARN while building.
