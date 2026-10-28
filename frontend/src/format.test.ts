@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRupees, formatSpecs, problemText } from './format'
+import { categoryLabel, formatRupees, formatSpecs, problemText, specRows } from './format'
 
 describe('formatRupees', () => {
   it('uses Indian digit grouping and no decimals for whole rupees', () => {
@@ -26,5 +26,24 @@ describe('problemText', () => {
     expect(problemText('not_enough_stock', 2)).toBe('Only 2 left')
     expect(problemText('inactive')).toBe('No longer available')
     expect(problemText('')).toBe('')
+  })
+})
+
+describe('specRows', () => {
+  it('turns specs into label and value pairs', () => {
+    expect(specRows({ ram_gb: 8, battery_mah: 5000, noise_cancelling: true, refresh_rate: 120 })).toEqual([
+      { label: 'RAM', value: '8 GB' },
+      { label: 'Battery', value: '5,000 mAh' },
+      { label: 'Noise cancelling', value: 'Yes' },
+      { label: 'Refresh rate', value: '120' },
+    ])
+  })
+})
+
+describe('categoryLabel', () => {
+  it('uses plural names for known categories', () => {
+    expect(categoryLabel('phone')).toBe('Phones')
+    expect(categoryLabel('tablet')).toBe('Tablet')
+    expect(categoryLabel(undefined)).toBe('')
   })
 })

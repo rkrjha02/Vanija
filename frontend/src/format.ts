@@ -58,3 +58,34 @@ export function problemText(problem: CartProblem, unitsLeft?: number): string {
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
 }
+
+// Label-value rows for the product cards, for example { ram_gb: 8 } -> { label: 'RAM', value: '8 GB' }.
+const number = new Intl.NumberFormat('en-IN')
+const SPEC_ROWS: Record<string, [string, (value: SpecValue) => string]> = {
+  ram_gb: ['RAM', (v) => `${v} GB`],
+  storage_gb: ['Storage', (v) => `${v} GB`],
+  battery_mah: ['Battery', (v) => `${typeof v === 'number' ? number.format(v) : v} mAh`],
+  camera_mp: ['Camera', (v) => `${v} MP`],
+  display_inch: ['Display', (v) => `${v} inch`],
+  processor: ['Processor', (v) => String(v)],
+  battery_hours: ['Battery life', (v) => `${v} hours`],
+  noise_cancelling: ['Noise cancelling', (v) => (v ? 'Yes' : 'No')],
+  connectivity: ['Connectivity', (v) => String(v)],
+}
+
+export function specRows(specs: Record<string, SpecValue> | undefined): { label: string; value: string }[] {
+  if (!specs) return []
+  return Object.entries(specs).map(([name, value]) => {
+    const known = SPEC_ROWS[name]
+    if (known) return { label: known[0], value: known[1](value) }
+    const label = name.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+    return { label, value: typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value) }
+  })
+}
+
+const CATEGORY_LABELS: Record<string, string> = { phone: 'Phones', laptop: 'Laptops', headphone: 'Headphones' }
+
+export function categoryLabel(category: string | undefined): string {
+  if (!category) return ''
+  return CATEGORY_LABELS[category] ?? category.charAt(0).toUpperCase() + category.slice(1)
+}

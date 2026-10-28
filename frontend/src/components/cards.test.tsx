@@ -35,17 +35,29 @@ describe('products card', () => {
     })
     expect(html).toContain('Phone A')
     expect(html).toContain('₹9,999')
-    expect(html).toContain('4 GB RAM')
+    expect(html).toContain('RAM')
+    expect(html).toContain('4 GB')
     expect(html).toContain('Out of stock')
   })
 
-  it('offers Add and Details, and disables Add when out of stock', () => {
+  it('offers Add to Cart and Details, and disables adding when out of stock', () => {
     const html = render({
       type: 'products',
       items: [{ id: 'PHN008', position: 1, name: 'Phone H', category: 'phone', price: 69999, in_stock: false, key_specs: {} }],
     })
     expect(html).toContain('Details')
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>.*?Add<\/button>/)
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Unavailable<\/button>/)
+    expect(html).not.toContain('Add to Cart')
+  })
+
+  it('shows brand, category and an enabled Add to Cart for an in-stock product', () => {
+    const html = render({
+      type: 'products',
+      items: [{ id: 'PHN001', position: 1, name: 'Phone A', brand: 'Acme', category: 'phone', price: 9999, in_stock: true, key_specs: {} }],
+    })
+    expect(html).toContain('Acme · Phones')
+    expect(html).toContain('In stock')
+    expect(html).toMatch(/<button[^>]*class="btn btn-accent btn-block"(?![^>]*disabled)[^>]*>.*?Add to Cart<\/button>/)
   })
 
   it('shows the detail layout when full specs are present', () => {
@@ -60,7 +72,7 @@ describe('products card', () => {
     expect(html).toContain('A work laptop')
     expect(html).toContain('Intel i5')
     expect(html).toContain('Only 3 left')
-    expect(html).toContain('Add to cart')
+    expect(html).toContain('Add to Cart')
   })
 })
 
@@ -78,17 +90,25 @@ describe('cart card', () => {
     expect(html).toContain('₹44,997')
     expect(html).toContain('Only 2 left')
     expect(html).toContain('need attention')
-    expect(html).not.toContain('Place order')
+    expect(html).not.toContain('Proceed to Order')
   })
 
-  it('offers Place order when the cart has no problems', () => {
+  it('offers Proceed to Order when the cart has no problems', () => {
     const html = render({
       type: 'cart',
       items: [{ product_id: 'PHN001', name: 'Phone A', quantity: 1, unit_price: 9999, line_total: 9999, problem: '' }],
       cart_total: 9999,
       has_problems: false,
     })
-    expect(html).toContain('Place order')
+    expect(html).toContain('Proceed to Order')
+    expect(html).toContain('Total items')
+  })
+
+  it('shows an empty state instead of a zero total', () => {
+    const html = render({ type: 'cart', items: [], cart_total: 0, has_problems: false })
+    expect(html).toContain('Your cart is empty.')
+    expect(html).not.toContain('₹0')
+    expect(html).not.toContain('Proceed to Order')
   })
 })
 
@@ -107,15 +127,18 @@ describe('order confirmation card', () => {
 
   it('offers to save a new address', () => {
     const html = render({ ...base, show_save_address: true })
-    expect(html).toContain('Confirm order')
+    expect(html).toContain('Confirm Your Order')
+    expect(html).toContain('Confirm Order')
     expect(html).toContain('Confirm and save address')
-    expect(html).toContain('Cash on Delivery')
+    expect(html).toContain('Cash on Delivery (COD)')
     expect(html).toContain('411001')
+    expect(html).toContain('₹9,999')
+    expect(html).toContain('Not now')
   })
 
   it('shows only one button for a saved address', () => {
     const html = render({ ...base, show_save_address: false })
-    expect(html).toContain('Confirm order')
+    expect(html).toContain('Confirm Order')
     expect(html).not.toContain('save address')
   })
 })
@@ -123,8 +146,11 @@ describe('order confirmation card', () => {
 describe('cancel and result cards', () => {
   it('shows the cancel button', () => {
     const html = render({ type: 'cancel_confirmation', order_id: 7, items: [{ name: 'Phone A', quantity: 1 }], total: 9999 })
-    expect(html).toContain('Cancel order #7?')
-    expect(html).toContain('Yes, cancel order')
+    expect(html).toContain('Cancel Order')
+    expect(html).toContain('Order #7')
+    expect(html).toContain('Are you sure you want to cancel this order?')
+    expect(html).toContain('Confirm Cancellation')
+    expect(html).toContain('No, keep my order')
   })
 
   it('shows a placed order with the amount to pay', () => {
@@ -136,7 +162,23 @@ describe('cancel and result cards', () => {
       items: [{ product_id: 'PHN001', name: 'Phone A', quantity: 1, unit_price: 9999, line_total: 9999 }],
       delivery,
     })
-    expect(html).toContain('Order #7 placed')
+    expect(html).toContain('Order Placed Successfully!')
+    expect(html).toContain('#7')
     expect(html).toContain('Pay on delivery')
+    expect(html).toContain('₹9,999')
+  })
+
+  it('shows a cancelled order without claiming a refund', () => {
+    const html = render({
+      type: 'order_cancelled',
+      order_id: 7,
+      status: 'cancelled',
+      total: 9999,
+      items: [{ product_id: 'PHN001', name: 'Phone A', quantity: 1, unit_price: 9999, line_total: 9999 }],
+      delivery,
+    })
+    expect(html).toContain('Order Cancelled')
+    expect(html).toContain('Your order has been cancelled successfully.')
+    expect(html.toLowerCase()).not.toContain('refund')
   })
 })

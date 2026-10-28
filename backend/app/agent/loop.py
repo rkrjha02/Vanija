@@ -99,7 +99,7 @@ async def run_agent_loop(
 
             card = _build_card(tc["name"], tool_result)
             if card:
-                cards.append(card)
+                _add_card(cards, card)
             tool_result.pop("_private", None)
 
             await save_message(
@@ -146,6 +146,14 @@ def _format_for_llm(turn_messages: list[dict]) -> list[dict]:
 
 
 CART_TOOLS = {"add_to_cart", "update_cart_item", "view_cart"}
+
+
+def _add_card(cards: list, card: dict) -> None:
+    # Every cart tool returns the whole cart after its change, so an earlier cart card
+    # from the same turn is out of date. Keep only the newest one.
+    if card["type"] == "cart":
+        cards[:] = [c for c in cards if c["type"] != "cart"]
+    cards.append(card)
 
 
 def _build_card(tool_name: str, result: dict) -> dict | None:

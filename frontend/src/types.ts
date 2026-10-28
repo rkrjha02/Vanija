@@ -118,4 +118,5 @@ export interface ChatMessage {
   text: string
   cards: Card[]
   isError?: boolean
+  time?: string
 }
