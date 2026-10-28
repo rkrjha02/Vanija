@@ -38,10 +38,16 @@ class Settings(BaseSettings):
     test_database_url: str = ""
 
     @model_validator(mode="after")
-    def _validate_database_urls(self) -> "Settings":
+    def _validate_settings(self) -> "Settings":
         _check_database_url(self.database_url, "DATABASE_URL")
         if self.test_database_url:
             _check_database_url(self.test_database_url, "TEST_DATABASE_URL")
+        if not self.jwt_secret_key:
+            raise ValueError(
+                "JWT_SECRET_KEY is not set. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\" "
+                "and add it to your .env file."
+            )
         return self
 
     # Groq
@@ -77,6 +83,14 @@ class Settings(BaseSettings):
     policy_min_similarity: float = 0.65
     product_min_similarity: float = 0.45
     policy_question_max_length: int = 300
+
+    # Auth / JWT
+    jwt_secret_key: str = ""
+    access_token_expire_minutes: int = 1440
+    admin_access_token_expire_minutes: int = 480
+    refresh_token_expire_days: int = 7
+    admin_username: str = ""
+    admin_password_hash: str = ""
 
     # CORS
     allowed_origins: str = ""

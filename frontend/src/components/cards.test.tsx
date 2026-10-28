@@ -7,7 +7,6 @@ function render(card: Card): string {
   return renderToStaticMarkup(
     <CardView
       card={card}
-      customerId="c1"
       busy={false}
       onSendMessage={() => {}}
       onButtonResult={() => {}}

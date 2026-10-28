@@ -7,6 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_admin
+from app.auth.passwords import verify_password
+from app.auth.tokens import create_admin_access_token
+from app.config import settings
 from app.data.admin_products import (
     bulk_insert_products,
     create_product,
@@ -113,8 +117,28 @@ async def _embed_product(session: AsyncSession, product) -> None:
 # --- Endpoints ---
 
 
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@router.post("/login")
+async def admin_login(req: AdminLoginRequest):
+    if not settings.admin_username or not settings.admin_password_hash:
+        raise HTTPException(status_code=401, detail="Admin login not configured")
+    if req.username != settings.admin_username:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not verify_password(req.password, settings.admin_password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    access = create_admin_access_token(user_id="admin")
+    return {"access_token": access}
+
+
 @router.get("/categories")
-async def admin_categories(session: AsyncSession = Depends(get_db)):
+async def admin_categories(
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
+):
     return await get_all_categories(session)
 
 
@@ -128,6 +152,7 @@ async def admin_list_products(
     sort_order: str = "asc",
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    _admin: dict = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db),
 ):
     return await list_products(
@@ -144,7 +169,11 @@ async def admin_list_products(
 
 
 @router.get("/products/{product_id}")
-async def admin_get_product(product_id: str, session: AsyncSession = Depends(get_db)):
+async def admin_get_product(
+    product_id: str,
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
+):
     product = await get_product_by_id(session, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -152,7 +181,11 @@ async def admin_get_product(product_id: str, session: AsyncSession = Depends(get
 
 
 @router.post("/products", status_code=201)
-async def admin_create_product(body: ProductCreate, session: AsyncSession = Depends(get_db)):
+async def admin_create_product(
+    body: ProductCreate,
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
+):
     if await name_exists(session, body.name):
         raise HTTPException(status_code=409, detail="A product with this name already exists")
 
@@ -164,7 +197,10 @@ async def admin_create_product(body: ProductCreate, session: AsyncSession = Depe
 
 @router.put("/products/{product_id}")
 async def admin_update_product(
-    product_id: str, body: ProductUpdate, session: AsyncSession = Depends(get_db)
+    product_id: str,
+    body: ProductUpdate,
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
 ):
     existing = await get_product_row(session, product_id)
     if existing is None:
@@ -189,7 +225,11 @@ async def admin_update_product(
 
 
 @router.delete("/products/{product_id}")
-async def admin_delete_product(product_id: str, session: AsyncSession = Depends(get_db)):
+async def admin_delete_product(
+    product_id: str,
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
+):
     product = await set_active_status(session, product_id, is_active=False)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -197,7 +237,11 @@ async def admin_delete_product(product_id: str, session: AsyncSession = Depends(
 
 
 @router.post("/products/{product_id}/reactivate")
-async def admin_reactivate_product(product_id: str, session: AsyncSession = Depends(get_db)):
+async def admin_reactivate_product(
+    product_id: str,
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
+):
     product = await set_active_status(session, product_id, is_active=True)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -205,7 +249,11 @@ async def admin_reactivate_product(product_id: str, session: AsyncSession = Depe
 
 
 @router.post("/products/upload")
-async def admin_upload_products(file: UploadFile, session: AsyncSession = Depends(get_db)):
+async def admin_upload_products(
+    file: UploadFile,
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
+):
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a .csv")
 

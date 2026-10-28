@@ -7,12 +7,11 @@ import { CashIcon, ClockIcon } from './Icons'
 
 interface Props {
   card: OrderConfirmationData
-  customerId: string
   onResult: (result: ButtonResult) => void
   onError: (message: string) => void
 }
 
-export function OrderConfirmationCard({ card, customerId, onResult, onError }: Props) {
+export function OrderConfirmationCard({ card, onResult, onError }: Props) {
   const [tapped, setTapped] = useState<'plain' | 'save' | null>(null)
   const { summary } = card
 
@@ -20,7 +19,7 @@ export function OrderConfirmationCard({ card, customerId, onResult, onError }: P
     if (tapped) return
     setTapped(saveAddress ? 'save' : 'plain')
     try {
-      onResult(await confirmOrder(customerId, card.pending_id, saveAddress))
+      onResult(await confirmOrder(card.pending_id, saveAddress))
     } catch {
       setTapped(null)
       onError('Could not confirm the order. Please try again.')

@@ -1,14 +1,18 @@
-import secrets
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.data.models import Customer
+from app.data.models import Customer, User
 
 
 async def create_customer(session: AsyncSession) -> str:
-    customer_id = secrets.token_urlsafe(32)
-    customer = Customer(id=customer_id)
+    user_id = uuid.uuid4().hex
+    user = User(id=user_id, email=f"{user_id}@placeholder.local", name="Guest")
+    session.add(user)
+    await session.flush()
+    customer_id = uuid.uuid4().hex
+    customer = Customer(id=customer_id, user_id=user_id)
     session.add(customer)
     await session.commit()
     return customer_id

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ApiError, sendMessage, startSession } from './api'
+import { ApiError, getHistory, logout, sendMessage } from './api'
+import { getName, isLoggedIn } from './auth'
 import { STORE_NAME, STORE_TAGLINE, SUGGESTIONS } from './brand'
 import { CardView } from './components/CardView'
 import { AlertIcon, CartIcon, SendIcon, SettingsIcon, SparkIcon } from './components/Icons'
+import { LoginPage } from './components/LoginPage'
 import { RichText } from './components/RichText'
 import { problemText } from './format'
 import type { ButtonResult, Card, ChatMessage } from './types'
@@ -31,26 +33,27 @@ function StoreMark({ size = 'md' }: { size?: 'md' | 'lg' }) {
 }
 
 export default function App() {
-  const [customerId, setCustomerId] = useState<string | null>(null)
+  const [authed, setAuthed] = useState(isLoggedIn())
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
   const started = useRef(false)
   const scrollRef = useRef<HTMLElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // React runs effects twice in development; without this guard a first visit creates two customers.
+    if (!authed) return
     if (started.current) return
     started.current = true
-    startSession()
-      .then(({ customerId, history }) => {
-        setCustomerId(customerId)
+    getHistory()
+      .then((history) => {
         setMessages(history.map((m) => makeMessage(m.role, m.content)))
+        setReady(true)
       })
       .catch(() => setStartError('We could not reach the store right now.'))
-  }, [])
+  }, [authed])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -63,13 +66,13 @@ export default function App() {
 
   async function send(rawText: string) {
     const text = rawText.trim()
-    if (!text || sending || !customerId) return
+    if (!text || sending || !ready) return
 
     addMessage(makeMessage('user', text))
     setInput('')
     setSending(true)
     try {
-      const reply = await sendMessage(customerId, text)
+      const reply = await sendMessage(text)
       addMessage(makeMessage('assistant', reply.reply_text, reply.cards))
     } catch (error) {
       const errorText =
@@ -96,7 +99,18 @@ export default function App() {
     addMessage(makeMessage('assistant', text, [], true))
   }
 
-  const ready = customerId !== null && !startError
+  async function handleLogout() {
+    await logout()
+    setAuthed(false)
+    setMessages([])
+    setReady(false)
+    started.current = false
+  }
+
+  if (!authed) {
+    return <LoginPage onLogin={() => setAuthed(true)} />
+  }
+
   const showWelcome = ready && messages.length === 0
 
   return (
@@ -108,7 +122,7 @@ export default function App() {
             <div className="header-title">{STORE_NAME}</div>
             <div className="header-status" aria-live="polite">
               <span className={`status-dot ${startError ? 'off' : sending ? 'busy' : 'on'}`} />
-              {startError ? 'Offline' : !customerId ? 'Connecting…' : sending ? 'Typing…' : 'Shopping assistant · Online'}
+              {startError ? 'Offline' : !ready ? 'Connecting…' : sending ? 'Typing…' : getName() ? `Hi, ${getName()}` : 'Shopping assistant · Online'}
             </div>
           </div>
         </div>
@@ -131,6 +145,19 @@ export default function App() {
           >
             <SettingsIcon size={18} />
           </a>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => void handleLogout()}
+            aria-label="Log out"
+            title={`Log out${getName() ? ` (${getName()})` : ''}`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -149,7 +176,7 @@ export default function App() {
             </div>
           )}
 
-          {!startError && !customerId && (
+          {!startError && !ready && (
             <div className="state-panel">
               <div className="loader" aria-label="Connecting" />
             </div>
@@ -191,7 +218,6 @@ export default function App() {
                   <CardView
                     key={index}
                     card={card}
-                    customerId={customerId ?? ''}
                     busy={sending}
                     onSendMessage={(text) => void send(text)}
                     onButtonResult={handleButtonResult}

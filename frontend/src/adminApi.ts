@@ -1,3 +1,4 @@
+import { getAdminToken } from './auth'
 import { resolveBaseUrl } from './api'
 
 const BASE_URL = resolveBaseUrl(import.meta.env.VITE_API_BASE_URL)
@@ -32,8 +33,18 @@ export interface UploadResult {
   errors: { row: number; reason: string }[]
 }
 
+function adminAuthHeaders(): Record<string, string> {
+  const token = getAdminToken()
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}` }
+}
+
 async function adminRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const resp = await fetch(BASE_URL + path, options)
+  const existingHeaders = (options.headers ?? {}) as Record<string, string>
+  const resp = await fetch(BASE_URL + path, {
+    ...options,
+    headers: { ...adminAuthHeaders(), ...existingHeaders },
+  })
   if (!resp.ok) {
     const body = await resp.text()
     let detail = body

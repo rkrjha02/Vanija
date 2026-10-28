@@ -132,17 +132,20 @@ class TestAdminDataLayer:
 
 @pytest.fixture
 def admin_client(seeded_session):
-    """Create a test client with the seeded session injected."""
+    """Create a test client with the seeded session and admin auth injected."""
     from httpx import ASGITransport, AsyncClient
     from app.main import app
     from app.data.database import get_db
+    from tests.token_helpers import make_admin_headers
 
     async def override_get_db():
         yield seeded_session
 
     app.dependency_overrides[get_db] = override_get_db
     transport = ASGITransport(app=app)
-    client = AsyncClient(transport=transport, base_url="http://test")
+    client = AsyncClient(
+        transport=transport, base_url="http://test", headers=make_admin_headers(),
+    )
     return client
 
 

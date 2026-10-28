@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_customer
 from app.config import settings
 from app.data.conversations import get_or_create_conversation
 from app.data.customers import get_customer
@@ -10,8 +11,12 @@ from app.data.messages import get_recent_messages
 router = APIRouter()
 
 
-@router.get("/history/{customer_id}")
-async def get_history(customer_id: str, session: AsyncSession = Depends(get_db)):
+@router.get("/history")
+async def get_history(
+    current: dict = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_db),
+):
+    customer_id = current["customer_id"]
     customer = await get_customer(session, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")

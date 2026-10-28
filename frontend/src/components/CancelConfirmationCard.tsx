@@ -6,19 +6,18 @@ import { AlertIcon } from './Icons'
 
 interface Props {
   card: CancelConfirmationData
-  customerId: string
   onResult: (result: ButtonResult) => void
   onError: (message: string) => void
 }
 
-export function CancelConfirmationCard({ card, customerId, onResult, onError }: Props) {
+export function CancelConfirmationCard({ card, onResult, onError }: Props) {
   const [tapped, setTapped] = useState(false)
 
   async function cancel() {
     if (tapped) return
     setTapped(true)
     try {
-      onResult(await confirmCancel(customerId, card.order_id))
+      onResult(await confirmCancel(card.order_id))
     } catch {
       setTapped(false)
       onError('Could not cancel the order. Please try again.')

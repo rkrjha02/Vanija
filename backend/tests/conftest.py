@@ -1,13 +1,22 @@
 import asyncio
+import os
 import sys
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-do-not-use-in-production")
+os.environ.setdefault("ADMIN_USERNAME", "testadmin")
+os.environ.setdefault("ADMIN_PASSWORD_HASH", "")  # set below after bcrypt import
+
 from app.config import settings
 from app.data.models import Base, Product
 from tests.db_guard import DatabaseGuardError, validate_test_database_url
+
+import bcrypt as _bcrypt
+if not settings.admin_password_hash:
+    settings.admin_password_hash = _bcrypt.hashpw(b"testpass123", _bcrypt.gensalt()).decode()
 
 _TEST_EMBEDDING = [0.1] * settings.embedding_dimensions
 
