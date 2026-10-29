@@ -8,6 +8,7 @@ function render(card: Card): string {
     <CardView
       card={card}
       busy={false}
+      fromHistory={false}
       onSendMessage={() => {}}
       onButtonResult={() => {}}
       onButtonError={() => {}}
