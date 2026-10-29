@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     recent_messages_count: int = 10
     max_shown_products: int = 10
 
+    # Chat history shown on screen (one page = this many messages; older pages load on scroll)
+    history_page_size: int = 50
+
     # Orders
     pending_expiry_minutes: int = 15
 

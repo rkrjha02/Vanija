@@ -65,7 +65,7 @@ async def run_agent_loop(
 
         if not llm_response["tool_calls"]:
             reply_text = llm_response["reply_text"] or ""
-            await save_message(session, conv_id, turn_id, "assistant", content=reply_text)
+            await save_message(session, conv_id, turn_id, "assistant", content=reply_text, cards=cards)
             return {"reply_text": reply_text, "cards": cards}
 
         await save_message(
@@ -197,5 +197,5 @@ async def _finish_with_fixed_message(
     message: str,
     cards: list,
 ) -> dict:
-    await save_message(session, conv_id, turn_id, "assistant", content=message)
+    await save_message(session, conv_id, turn_id, "assistant", content=message, cards=cards)
     return {"reply_text": message, "cards": cards}

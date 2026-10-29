@@ -1,9 +1,12 @@
 import logging
+import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.loop import build_order_confirmation_card
 from app.data.addresses import save_address
+from app.data.conversations import get_or_create_conversation
+from app.data.messages import save_message
 from app.data.orders import (
     cancel_order,
     expire_pending,
@@ -35,7 +38,9 @@ async def confirm_order(
         return {"status": "not_found", "message": "This confirmation was not found.", "cards": []}
 
     if pending["status"] == "used":
-        return await _already_placed(session, customer_id, pending["order_id"])
+        resp = await _already_placed(session, customer_id, pending["order_id"])
+        await _save_button_result(session, customer_id, resp)
+        return resp
 
     reason = "expired"
     if pending["status"] == "waiting" and not pending["is_expired"]:
@@ -44,19 +49,25 @@ async def confirm_order(
             order = result["order"]
             if save_new_address and pending["is_new_address"]:
                 await _save_address_quietly(session, customer_id, pending["delivery"])
-            return {
+            resp = {
                 "status": "placed",
                 "message": f"Order #{order['order_id']} is placed. You will pay ₹{order['total']:,.2f} on delivery.",
                 "cards": [_order_card("order_placed", order)],
             }
+            await _save_button_result(session, customer_id, resp)
+            return resp
         reason = result["reason"]
         if reason == "not_waiting":
             again = await get_pending(session, pending_id, customer_id)
             if again["status"] == "used":
-                return await _already_placed(session, customer_id, again["order_id"])
+                resp = await _already_placed(session, customer_id, again["order_id"])
+                await _save_button_result(session, customer_id, resp)
+                return resp
             reason = "expired"
 
-    return await _fresh_summary(session, customer_id, pending, reason)
+    resp = await _fresh_summary(session, customer_id, pending, reason)
+    await _save_button_result(session, customer_id, resp)
+    return resp
 
 
 async def _already_placed(session: AsyncSession, customer_id: str, order_id: int) -> dict:
@@ -121,13 +132,26 @@ async def confirm_cancel(session: AsyncSession, customer_id: str, order_id: int)
     if result["status"] == "not_found":
         return {"status": "not_found", "message": "This order was not found.", "cards": []}
     if result["status"] == "already_cancelled":
-        return {
+        resp = {
             "status": "already_cancelled",
             "message": f"Order #{order_id} was already cancelled.",
             "cards": [_order_card("order_cancelled", result["order"])],
         }
-    return {
-        "status": "cancelled",
-        "message": f"Order #{order_id} is cancelled.",
-        "cards": [_order_card("order_cancelled", result["order"])],
-    }
+    else:
+        resp = {
+            "status": "cancelled",
+            "message": f"Order #{order_id} is cancelled.",
+            "cards": [_order_card("order_cancelled", result["order"])],
+        }
+    await _save_button_result(session, customer_id, resp)
+    return resp
+
+
+async def _save_button_result(session: AsyncSession, customer_id: str, result: dict) -> None:
+    conv = await get_or_create_conversation(session, customer_id)
+    turn_id = str(uuid.uuid4())
+    await save_message(
+        session, conv["id"], turn_id, "assistant",
+        content=result["message"],
+        cards=result.get("cards"),
+    )

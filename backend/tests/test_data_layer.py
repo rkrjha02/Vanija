@@ -4,7 +4,7 @@ from app.config import settings
 from app.data.customers import create_customer, get_customer
 from app.data.products import get_categories, get_product_details, search_products
 from app.data.conversations import get_or_create_conversation, update_shown_products
-from app.data.messages import get_recent_messages, get_turn_messages, save_message
+from app.data.messages import get_history_page, get_recent_messages, get_turn_messages, save_message
 
 _TEST_EMBEDDING = [0.1] * settings.embedding_dimensions
 
@@ -156,6 +156,67 @@ class TestMessages:
         assert "tool" not in roles
         assert len(recent) == 2
 
+    async def test_history_page_returns_newest_messages_oldest_first(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+        for i in range(1, 8):
+            await save_message(session, conv["id"], f"turn-{i}", "user", content=f"m{i}")
+
+        page = await get_history_page(session, conv["id"], before_id=None, limit=3)
+        assert [m["content"] for m in page["messages"]] == ["m5", "m6", "m7"]
+        assert page["has_more"] is True
+        assert all("id" in m for m in page["messages"])
+
+    async def test_history_pages_join_without_gaps_or_overlap(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+        for i in range(1, 8):
+            await save_message(session, conv["id"], f"turn-{i}", "user", content=f"m{i}")
+
+        seen = []
+        before = None
+        while True:
+            page = await get_history_page(session, conv["id"], before_id=before, limit=3)
+            seen = [m["content"] for m in page["messages"]] + seen
+            if not page["has_more"]:
+                break
+            before = page["messages"][0]["id"]
+
+        assert seen == [f"m{i}" for i in range(1, 8)]
+
+    async def test_history_page_shows_only_customer_text_and_final_replies(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+
+        await save_message(session, conv["id"], "turn-1", "user", content="Search phones")
+        await save_message(session, conv["id"], "turn-1", "assistant", content="Let me check.",
+                           tool_calls=[{"id": "tc1", "name": "search_products", "arguments": {}}])
+        await save_message(session, conv["id"], "turn-1", "tool",
+                           content='{"status": "success"}', tool_call_id="tc1")
+        await save_message(session, conv["id"], "turn-1", "assistant", content="")
+        await save_message(session, conv["id"], "turn-1", "assistant", content="Here are the results")
+
+        page = await get_history_page(session, conv["id"], before_id=None, limit=50)
+        assert [m["content"] for m in page["messages"]] == ["Search phones", "Here are the results"]
+        assert page["has_more"] is False
+
+    async def test_history_page_for_empty_conversation(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+        page = await get_history_page(session, conv["id"], before_id=None, limit=50)
+        assert page == {"messages": [], "has_more": False}
+
+    async def test_history_page_never_returns_another_conversation(self, session):
+        cid_a = await create_customer(session)
+        conv_a = await get_or_create_conversation(session, cid_a)
+        cid_b = await create_customer(session)
+        conv_b = await get_or_create_conversation(session, cid_b)
+        await save_message(session, conv_a["id"], "turn-1", "user", content="A's secret")
+        await save_message(session, conv_b["id"], "turn-1", "user", content="B's message")
+
+        page = await get_history_page(session, conv_b["id"], before_id=10**9, limit=50)
+        assert [m["content"] for m in page["messages"]] == ["B's message"]
+
     async def test_get_turn_messages(self, session):
         cid = await create_customer(session)
         conv = await get_or_create_conversation(session, cid)
@@ -167,3 +228,56 @@ class TestMessages:
         turn_msgs = await get_turn_messages(session, conv["id"], "turn-1")
         assert len(turn_msgs) == 2
         assert all(m["role"] in ("user", "assistant") for m in turn_msgs)
+
+    async def test_history_returns_cards_with_assistant_message(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+        sample_cards = [{"type": "products", "items": [{"id": "PHN001", "name": "Phone A"}]}]
+
+        await save_message(session, conv["id"], "turn-1", "user", content="Show phones")
+        await save_message(session, conv["id"], "turn-1", "assistant", content="Here you go", cards=sample_cards)
+
+        page = await get_history_page(session, conv["id"], before_id=None, limit=50)
+        msgs = page["messages"]
+        assert len(msgs) == 2
+        assert msgs[0]["cards"] is None
+        assert msgs[1]["cards"] == sample_cards
+
+    async def test_history_returns_null_cards_when_none(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+
+        await save_message(session, conv["id"], "turn-1", "user", content="Hello")
+        await save_message(session, conv["id"], "turn-1", "assistant", content="Hi there!")
+
+        page = await get_history_page(session, conv["id"], before_id=None, limit=50)
+        for msg in page["messages"]:
+            assert msg["cards"] is None
+
+    async def test_history_empty_cards_list_stored_as_null(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+
+        await save_message(session, conv["id"], "turn-1", "assistant", content="No cards", cards=[])
+
+        page = await get_history_page(session, conv["id"], before_id=None, limit=50)
+        assert page["messages"][0]["cards"] is None
+
+    async def test_cards_survive_pagination(self, session):
+        cid = await create_customer(session)
+        conv = await get_or_create_conversation(session, cid)
+        cards_a = [{"type": "products", "items": [{"id": "A"}]}]
+        cards_b = [{"type": "cart", "items": [], "cart_total": 100, "has_problems": False}]
+
+        await save_message(session, conv["id"], "turn-1", "user", content="m1")
+        await save_message(session, conv["id"], "turn-1", "assistant", content="r1", cards=cards_a)
+        await save_message(session, conv["id"], "turn-2", "user", content="m2")
+        await save_message(session, conv["id"], "turn-2", "assistant", content="r2", cards=cards_b)
+
+        page1 = await get_history_page(session, conv["id"], before_id=None, limit=2)
+        assert page1["has_more"] is True
+        assert page1["messages"][1]["cards"] == cards_b
+
+        before = page1["messages"][0]["id"]
+        page2 = await get_history_page(session, conv["id"], before_id=before, limit=2)
+        assert page2["messages"][1]["cards"] == cards_a
