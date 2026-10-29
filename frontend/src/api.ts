@@ -4,7 +4,7 @@ import {
   getRefreshToken,
   saveTokens,
 } from './auth'
-import type { ButtonResult, ChatReply, HistoryMessage } from './types'
+import type { ButtonResult, ChatReply, HistoryPage } from './types'
 
 export function resolveBaseUrl(envValue: string | undefined): string {
   if (!envValue) return '/api'
@@ -156,9 +156,10 @@ export async function adminLogin(
 
 // --- Customer-facing API ---
 
-export async function getHistory(): Promise<HistoryMessage[]> {
-  const result = await request<{ messages: HistoryMessage[] }>('/history', 'GET')
-  return result.messages
+// One page of the chat. Without `before`: the newest page. With it: the page just older than that message id.
+export function getHistory(before?: number): Promise<HistoryPage> {
+  const query = before === undefined ? '' : `?before=${before}`
+  return request<HistoryPage>(`/history${query}`, 'GET')
 }
 
 export function sendMessage(message: string): Promise<ChatReply> {

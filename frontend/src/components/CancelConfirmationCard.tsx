@@ -6,15 +6,16 @@ import { AlertIcon, CheckIcon } from './Icons'
 
 interface Props {
   card: CancelConfirmationData
+  fromHistory?: boolean
   onResult: (result: ButtonResult) => void
   onError: (message: string) => void
 }
 
 const ERROR_TEXT = 'Could not cancel the order. Please try again.'
 
-export function CancelConfirmationCard({ card, onResult, onError }: Props) {
+export function CancelConfirmationCard({ card, fromHistory, onResult, onError }: Props) {
   const [tapped, setTapped] = useState(false)
-  const [answered, setAnswered] = useState(false)
+  const [answered, setAnswered] = useState(fromHistory ?? false)
   const [failed, setFailed] = useState(false)
   const [kept, setKept] = useState(false)
 
@@ -76,7 +77,7 @@ export function CancelConfirmationCard({ card, onResult, onError }: Props) {
       {answered ? (
         <div className="outcome-note" role="status">
           <CheckIcon size={16} />
-          <span>Request sent. See the result below.</span>
+          <span>{fromHistory ? 'This cancellation was already acted on.' : 'Request sent. See the result below.'}</span>
         </div>
       ) : (
         <>

@@ -7,6 +7,7 @@ import { AlertIcon, CashIcon, CheckIcon, ClockIcon, ReceiptIcon } from './Icons'
 
 interface Props {
   card: OrderConfirmationData
+  fromHistory?: boolean
   onResult: (result: ButtonResult) => void
   onError: (message: string) => void
 }
@@ -17,12 +18,13 @@ const ERROR_TEXT = 'Could not confirm the order. Please try again.'
 function outcomeText(status: string): string {
   if (status === 'placed' || status === 'already_placed') return 'Order placed. See the confirmation below.'
   if (status === 'needs_reconfirm') return 'Something changed. Please review the updated summary below.'
+  if (status === 'history') return 'This summary was already acted on.'
   return 'This summary can no longer be used. See the message below.'
 }
 
-export function OrderConfirmationCard({ card, onResult, onError }: Props) {
+export function OrderConfirmationCard({ card, fromHistory, onResult, onError }: Props) {
   const [tapped, setTapped] = useState<'plain' | 'save' | null>(null)
-  const [outcome, setOutcome] = useState<string | null>(null)
+  const [outcome, setOutcome] = useState<string | null>(fromHistory ? 'history' : null)
   const [failed, setFailed] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const { summary } = card

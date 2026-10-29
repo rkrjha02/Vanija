@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { ApiError, getHistory, logout, sendMessage } from './api'
 import { getName, isLoggedIn } from './auth'
 import { STORE_FOOTNOTE, STORE_TAGLINE, SUGGESTIONS } from './brand'
@@ -10,18 +10,25 @@ import { RichText } from './components/RichText'
 import { Sidebar } from './components/Sidebar'
 import { ThemeToggle } from './components/ThemeToggle'
 import { formatTime, problemText } from './format'
-import type { ButtonResult, Card, ChatMessage } from './types'
+import type { ButtonResult, Card, ChatMessage, HistoryMessage } from './types'
 import './App.css'
 
 const COMPOSER_MAX_HEIGHT = 160
 
 let lastMessageId = 0
-function makeMessage(role: ChatMessage['role'], text: string, cards: Card[] = [], isError = false, fromHistory = false): ChatMessage {
+function makeMessage(role: ChatMessage['role'], text: string, cards: Card[] = [], isError = false): ChatMessage {
   lastMessageId += 1
-  // History messages carry no time from the backend, so only messages from this session show one.
-  const time = fromHistory ? undefined : new Date().toISOString()
-  return { id: String(lastMessageId), role, text, cards, isError, time }
+  return { id: String(lastMessageId), role, text, cards, isError, time: new Date().toISOString() }
 }
+
+// History has no time from the backend, so these messages show no timestamp. The "h" keeps their ids
+// apart from the ids of messages created in this session.
+function historyMessage(message: HistoryMessage): ChatMessage {
+  return { id: `h${message.id}`, role: message.role, text: message.content, cards: message.cards ?? [] }
+}
+
+// What the message list should do with its scroll position after the next render.
+type PendingScroll = 'bottom' | { height: number; top: number } | null
 
 function buttonResultText(result: ButtonResult): string {
   const lines = [result.message]
@@ -39,26 +46,86 @@ export default function App() {
   const [startError, setStartError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  // Older-history paging: the id of the oldest loaded message is the bookmark for the next page.
+  const [oldestId, setOldestId] = useState<number | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [olderError, setOlderError] = useState(false)
   const started = useRef(false)
   const scrollRef = useRef<HTMLElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const topMarkerRef = useRef<HTMLDivElement>(null)
+  const pendingScroll = useRef<PendingScroll>(null)
 
   useEffect(() => {
     if (!authed) return
     if (started.current) return
     started.current = true
     getHistory()
-      .then((history) => {
-        setMessages(history.map((m) => makeMessage(m.role, m.content, [], false, true)))
+      .then((page) => {
+        pendingScroll.current = 'bottom'
+        setMessages(page.messages.map(historyMessage))
+        setOldestId(page.messages[0]?.id ?? null)
+        setHasMore(page.has_more)
         setReady(true)
       })
       .catch(() => setStartError('We could not reach the store right now.'))
   }, [authed])
 
+  // Runs after React updates the page but before the browser paints it, so the customer never sees a jump.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const pending = pendingScroll.current
+    if (!el || !pending) return
+    if (pending === 'bottom') {
+      el.scrollTop = el.scrollHeight
+    } else {
+      // Older messages were added above: move down by exactly their height so the same message stays in view.
+      el.scrollTop = pending.top + (el.scrollHeight - pending.height)
+    }
+  }, [messages])
+
   useEffect(() => {
+    if (pendingScroll.current) {
+      pendingScroll.current = null
+      return
+    }
     const el = scrollRef.current
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [messages, sending])
+
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder || !hasMore || oldestId === null) return
+    setLoadingOlder(true)
+    setOlderError(false)
+    try {
+      const page = await getHistory(oldestId)
+      const el = scrollRef.current
+      if (el) pendingScroll.current = { height: el.scrollHeight, top: el.scrollTop }
+      setMessages((current) => [...page.messages.map(historyMessage), ...current])
+      if (page.messages.length > 0) setOldestId(page.messages[0].id)
+      setHasMore(page.has_more)
+    } catch {
+      setOlderError(true)
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [loadingOlder, hasMore, oldestId])
+
+  // Watch the marker above the first message; when it scrolls into view (or within 200px of it), load the next older page.
+  useEffect(() => {
+    const root = scrollRef.current
+    const marker = topMarkerRef.current
+    if (!root || !marker || !hasMore || loadingOlder || olderError) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) void loadOlder()
+      },
+      { root, rootMargin: '200px 0px 0px 0px' },
+    )
+    observer.observe(marker)
+    return () => observer.disconnect()
+  }, [hasMore, loadingOlder, olderError, loadOlder])
 
   // Grow the message box with its content, up to a limit, then scroll inside it.
   useLayoutEffect(() => {
@@ -131,6 +198,9 @@ export default function App() {
     setAuthed(false)
     setMessages([])
     setReady(false)
+    setOldestId(null)
+    setHasMore(false)
+    setOlderError(false)
     started.current = false
   }
 
@@ -243,6 +313,26 @@ export default function App() {
               </section>
             )}
 
+            {ready && messages.length > 0 && (
+              <div ref={topMarkerRef} className="history-edge" aria-live="polite">
+                {loadingOlder ? (
+                  <>
+                    <span className="spinner" />
+                    Loading earlier messages…
+                  </>
+                ) : olderError ? (
+                  <>
+                    Couldn't load earlier messages.
+                    <button type="button" className="link-button" onClick={() => void loadOlder()}>
+                      Retry
+                    </button>
+                  </>
+                ) : (
+                  !hasMore && <span className="history-start">This is the start of your conversation</span>
+                )}
+              </div>
+            )}
+
             {messages.map((message) => (
               <div key={message.id} className={`msg ${message.role}`}>
                 {message.role === 'assistant' && <BrandMark size="sm" />}
@@ -262,6 +352,7 @@ export default function App() {
                       key={index}
                       card={card}
                       busy={sending}
+                      fromHistory={message.id.startsWith('h')}
                       onSendMessage={(text) => void send(text)}
                       onButtonResult={handleButtonResult}
                       onButtonError={handleButtonError}

@@ -101,8 +101,15 @@ export interface ChatReply {
 }
 
 export interface HistoryMessage {
+  id: number
   role: 'user' | 'assistant'
   content: string
+  cards?: Card[] | null
+}
+
+export interface HistoryPage {
+  messages: HistoryMessage[]
+  has_more: boolean
 }
 
 export interface ButtonResult {

@@ -9,12 +9,13 @@ import './cards.css'
 interface Props {
   card: Card
   busy: boolean
+  fromHistory: boolean
   onSendMessage: (text: string) => void
   onButtonResult: (result: ButtonResult) => void
   onButtonError: (message: string) => void
 }
 
-export function CardView({ card, busy, onSendMessage, onButtonResult, onButtonError }: Props) {
+export function CardView({ card, busy, fromHistory, onSendMessage, onButtonResult, onButtonError }: Props) {
   switch (card.type) {
     case 'products':
       return <ProductsCard card={card} busy={busy} onSendMessage={onSendMessage} />
@@ -24,6 +25,7 @@ export function CardView({ card, busy, onSendMessage, onButtonResult, onButtonEr
       return (
         <OrderConfirmationCard
           card={card}
+          fromHistory={fromHistory}
           onResult={onButtonResult}
           onError={onButtonError}
         />
@@ -32,6 +34,7 @@ export function CardView({ card, busy, onSendMessage, onButtonResult, onButtonEr
       return (
         <CancelConfirmationCard
           card={card}
+          fromHistory={fromHistory}
           onResult={onButtonResult}
           onError={onButtonError}
         />
