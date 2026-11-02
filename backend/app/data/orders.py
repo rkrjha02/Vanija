@@ -259,6 +259,59 @@ async def get_order(
     }
 
 
+async def get_customer_orders(
+    session: AsyncSession,
+    customer_id: str,
+    status: str | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    filters = [Order.customer_id == customer_id]
+    if status is not None:
+        filters.append(Order.status == status)
+    orders = (
+        await session.execute(
+            select(Order)
+            .where(*filters)
+            .order_by(Order.created_at.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    if not orders:
+        return []
+
+    order_ids = [o.id for o in orders]
+    items = (
+        await session.execute(
+            select(OrderItem)
+            .where(OrderItem.order_id.in_(order_ids))
+            .order_by(OrderItem.order_id, OrderItem.product_id)
+        )
+    ).scalars().all()
+    items_by_order: dict[int, list] = {}
+    for item in items:
+        items_by_order.setdefault(item.order_id, []).append(item)
+
+    result = []
+    for order in orders:
+        order_items = items_by_order.get(order.id, [])
+        result.append({
+            "order_id": order.id,
+            "status": order.status,
+            "created_at": order.created_at,
+            "address_short": f"{order.delivery_address_line}, {order.delivery_city}",
+            "total": _money(order.total_amount),
+            "items": [
+                {
+                    "name": i.product_name,
+                    "quantity": i.quantity,
+                    "price": _money(i.unit_price),
+                }
+                for i in order_items
+            ],
+        })
+    return result
+
+
 async def list_placed_orders(session: AsyncSession, customer_id: str) -> list[dict]:
     result = await session.execute(
         select(Order.id, Order.created_at, Order.total_amount)

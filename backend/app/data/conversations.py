@@ -22,6 +22,7 @@ async def get_or_create_conversation(
         "id": conv.id,
         "customer_id": conv.customer_id,
         "shown_products": conv.shown_products or [],
+        "last_search_context": conv.last_search_context,
     }
 
 
@@ -32,5 +33,16 @@ async def update_shown_products(
         update(Conversation)
         .where(Conversation.id == conversation_id)
         .values(shown_products=shown_products)
+    )
+    await session.commit()
+
+
+async def update_last_search_context(
+    session: AsyncSession, conversation_id: int, search_context: dict
+) -> None:
+    await session.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id)
+        .values(last_search_context=search_context)
     )
     await session.commit()

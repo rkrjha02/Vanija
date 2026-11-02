@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { login, signup, ApiError } from '../api'
+import { useEffect, useState, type FormEvent } from 'react'
+import { login, resolveBaseUrl, signup, ApiError } from '../api'
 import { saveName, saveTokens } from '../auth'
 import { STORE_NAME, STORE_TAGLINE } from '../brand'
 import { BrandMark } from './BrandMark'
@@ -45,6 +45,10 @@ const FEATURES = [
 ]
 
 export function LoginPage({ onLogin }: Props) {
+  useEffect(() => {
+    fetch(resolveBaseUrl(import.meta.env.VITE_API_BASE_URL) + '/health').catch(() => {})
+  }, [])
+
   const [tab, setTab] = useState<'login' | 'signup'>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')

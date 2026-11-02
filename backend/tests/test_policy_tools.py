@@ -8,9 +8,9 @@ from app.tools.definitions import get_tool_definitions
 from app.tools.registry import ALL_HANDLERS
 
 
-def test_there_are_nine_tools_and_each_has_a_handler():
+def test_there_are_ten_tools_and_each_has_a_handler():
     names = [t["function"]["name"] for t in get_tool_definitions()]
-    assert len(names) == 9
+    assert len(names) == 10
     assert "search_policies" in names
     assert set(names) == set(ALL_HANDLERS)
 

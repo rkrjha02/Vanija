@@ -25,27 +25,27 @@ if sys.platform == "win32":
 
 TEST_PRODUCTS = [
     Product(id="PHN001", name="Phone A", category="phone", brand="Samsung",
-            price=9999, stock=10, description="A budget phone",
+            price=9999, stock=10, default_stock=10, description="A budget phone",
             specs={"ram_gb": 4, "battery_mah": 5000, "camera_mp": 50, "storage_gb": 128},
             embedding=_TEST_EMBEDDING),
     Product(id="PHN002", name="Phone B", category="phone", brand="Xiaomi",
-            price=14999, stock=5, description="A mid-range phone",
+            price=14999, stock=5, default_stock=5, description="A mid-range phone",
             specs={"ram_gb": 6, "battery_mah": 5000, "camera_mp": 108, "storage_gb": 128},
             embedding=_TEST_EMBEDDING),
     Product(id="PHN003", name="Phone C", category="phone", brand="Samsung",
-            price=19999, stock=0, description="Out of stock phone",
+            price=19999, stock=0, default_stock=0, description="Out of stock phone",
             specs={"ram_gb": 8, "battery_mah": 4500, "camera_mp": 50, "storage_gb": 256},
             embedding=_TEST_EMBEDDING),
     Product(id="LAP001", name="Laptop A", category="laptop", brand="HP",
-            price=45999, stock=8, description="A work laptop",
+            price=45999, stock=8, default_stock=8, description="A work laptop",
             specs={"ram_gb": 16, "storage_gb": 512, "display_inch": 15.6, "processor": "Intel i5"},
             embedding=_TEST_EMBEDDING),
     Product(id="HPH001", name="Headphone A", category="headphone", brand="Sony",
-            price=2999, stock=20, description="Wireless headphones",
+            price=2999, stock=20, default_stock=20, description="Wireless headphones",
             specs={"battery_hours": 30, "noise_cancelling": True, "connectivity": "Bluetooth 5.0"},
             embedding=_TEST_EMBEDDING),
     Product(id="PHN099", name="Inactive Phone", category="phone", brand="Test",
-            price=5000, stock=10, description="This product is inactive",
+            price=5000, stock=10, default_stock=10, description="This product is inactive",
             is_active=False,
             specs={"ram_gb": 2, "battery_mah": 3000, "camera_mp": 12, "storage_gb": 32}),
 ]
@@ -91,8 +91,8 @@ async def seeded_session(session):
 async def order_session(session):
     # Fresh stock and price every test, because placing orders changes them.
     await session.merge(Product(id="ORD001", name="Order Phone", category="phone", brand="X",
-                                price=1000, stock=5, description="", is_active=True, specs={}))
+                                price=1000, stock=5, default_stock=5, description="", is_active=True, specs={}))
     await session.merge(Product(id="ORD002", name="Order Laptop", category="laptop", brand="Y",
-                                price=30000, stock=3, description="", is_active=True, specs={}))
+                                price=30000, stock=3, default_stock=3, description="", is_active=True, specs={}))
     await session.commit()
     yield session

@@ -3,6 +3,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.data.conversations import update_last_search_context
 from app.data.products import (
     get_product_details as db_get_product_details,
     search_products as db_search_products,
@@ -30,6 +31,10 @@ def validate_search_products(args: dict) -> str | None:
     if max_price is not None and (not isinstance(max_price, int) or max_price < 0):
         return "max_price must be a non-negative integer"
 
+    offset = args.get("offset")
+    if offset is not None and (not isinstance(offset, int) or offset < 0):
+        return "offset must be a non-negative integer"
+
     return None
 
 
@@ -44,7 +49,11 @@ def validate_get_product_details(args: dict) -> str | None:
     return None
 
 
-async def handle_search_products(session: AsyncSession, args: dict, customer_id: str = "") -> dict:
+async def handle_search_products(
+    session: AsyncSession, args: dict, customer_id: str = "",
+    conversation_id: int | None = None,
+) -> dict:
+    offset = args.get("offset") or 0
     query_embedding = await embed_question(args["query"].strip())
 
     result = await db_search_products(
@@ -55,14 +64,37 @@ async def handle_search_products(session: AsyncSession, args: dict, customer_id:
         max_price=args.get("max_price"),
         brand=args.get("brand"),
         limit=settings.default_search_limit,
+        offset=offset,
     )
 
+    total_count = result["total_count"]
+    filters = {}
+    if args.get("brand"):
+        filters["brand"] = args["brand"]
+    if args.get("category"):
+        filters["category"] = args["category"]
+    if args.get("min_price") is not None:
+        filters["min_price"] = args["min_price"]
+    if args.get("max_price") is not None:
+        filters["max_price"] = args["max_price"]
+
+    if conversation_id is not None:
+        search_context = {
+            "query": args["query"].strip(),
+            "offset": offset,
+            "total_count": total_count,
+            "filters": filters,
+        }
+        await update_last_search_context(session, conversation_id, search_context)
+
     if not result["products"]:
-        return {"status": "no_match", "total_matches": 0, "products": []}
+        return {"status": "no_match", "total_matches": 0, "total_count": total_count, "offset": offset, "products": []}
 
     return {
         "status": "success",
         "total_matches": result["total_matches"],
+        "total_count": total_count,
+        "offset": offset,
         "products": result["products"],
     }
 

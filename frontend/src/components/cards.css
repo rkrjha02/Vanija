@@ -636,6 +636,61 @@
   color: var(--text-muted);
 }
 
+/* ---------- Order list ---------- */
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-block {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.order-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.order-position {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.order-date {
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.order-block .line {
+  padding: 6px 0;
+}
+
+.order-block .total-row {
+  margin-top: 4px;
+  padding-top: 8px;
+  font-size: 13px;
+}
+
+.order-block .total-amount {
+  font-size: 16px;
+}
+
+.order-address {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
 /* ---------- Result (placed / cancelled) ---------- */
 
 .result-hero {

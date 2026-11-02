@@ -36,6 +36,7 @@ async def run_agent_loop(
     conversation = await get_or_create_conversation(session, customer_id)
     conv_id = conversation["id"]
     shown_products = conversation["shown_products"]
+    last_search_context = conversation["last_search_context"]
     turn_id = str(uuid.uuid4())
 
     await save_message(session, conv_id, turn_id, "user", content=message_text)
@@ -46,7 +47,7 @@ async def run_agent_loop(
     tools = get_tool_definitions()
 
     for round_num in range(settings.max_rounds):
-        state_text = format_state_block(shown_products)
+        state_text = format_state_block(shown_products, last_search_context)
         turn_messages = await get_turn_messages(session, conv_id, turn_id)
         current_turn = [m for m in turn_messages if m["role"] != "user"] or []
         user_msg = {"role": "user", "content": message_text}
@@ -91,7 +92,10 @@ async def run_agent_loop(
 
             try:
                 handler = TOOL_HANDLERS[tc["name"]]["handle"]
-                tool_result = await handler(session, cleaned_args, customer_id)
+                if tc["name"] == "search_products":
+                    tool_result = await handler(session, cleaned_args, customer_id, conversation_id=conv_id)
+                else:
+                    tool_result = await handler(session, cleaned_args, customer_id)
             except Exception as e:
                 logger.error("Tool error in %s: %s", tc["name"], e)
                 await session.rollback()
@@ -101,6 +105,7 @@ async def run_agent_loop(
             if card:
                 _add_card(cards, card)
             tool_result.pop("_private", None)
+            tool_result.pop("_card", None)
 
             await save_message(
                 session, conv_id, turn_id, "tool",
@@ -114,6 +119,19 @@ async def run_agent_loop(
                     shown_products, tool_result["products"], label
                 )
                 await update_shown_products(session, conv_id, shown_products)
+                last_search_context = {
+                    "query": cleaned_args["query"].strip(),
+                    "offset": cleaned_args.get("offset") or 0,
+                    "total_count": tool_result.get("total_count", 0),
+                    "filters": {
+                        k: v for k, v in {
+                            "brand": cleaned_args.get("brand"),
+                            "category": cleaned_args.get("category"),
+                            "min_price": cleaned_args.get("min_price"),
+                            "max_price": cleaned_args.get("max_price"),
+                        }.items() if v is not None
+                    },
+                }
 
     return await _finish_with_fixed_message(session, conv_id, turn_id, FIXED_ROUND_LIMIT_MSG, cards)
 
@@ -176,6 +194,8 @@ def _build_card(tool_name: str, result: dict) -> dict | None:
             "items": result["items"],
             "total": result["total"],
         }
+    if tool_name == "view_orders" and status == "success":
+        return result["_card"]
     return None
 
 

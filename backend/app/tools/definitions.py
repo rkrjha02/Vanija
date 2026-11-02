@@ -60,6 +60,14 @@ def _tool_definitions() -> list[dict]:
                             "type": "integer",
                             "description": "Maximum price in rupees, only when the customer states a maximum.",
                         },
+                        "offset": {
+                            "type": "integer",
+                            "description": (
+                                "Use this to show the next page of results when the customer asks to see more. "
+                                "Get the current offset from the state block's 'Last product search' line and add 5. "
+                                "Default 0 (first page)."
+                            ),
+                        },
                     },
                     "required": ["query"],
                 },
@@ -190,6 +198,28 @@ def _tool_definitions() -> list[dict]:
                         "city": {"type": "string"},
                         "state": {"type": "string"},
                         "pincode": {"type": "string", "description": "6-digit pincode."},
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "view_orders",
+                "description": (
+                    "View the customer's recent orders. "
+                    "Call this whenever the customer asks about their orders, order history, "
+                    "or wants to cancel an order. Always call this before attempting to cancel "
+                    "— never guess which order to cancel."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "enum": ["placed", "cancelled"],
+                            "description": "Filter by order status.",
+                        },
                     },
                 },
             },

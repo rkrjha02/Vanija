@@ -11,6 +11,7 @@ from app.auth.dependencies import get_current_admin
 from app.auth.passwords import verify_password
 from app.auth.tokens import create_admin_access_token
 from app.config import settings
+from app.data.products import reset_all_stock
 from app.data.admin_products import (
     bulk_insert_products,
     create_product,
@@ -41,6 +42,7 @@ class ProductCreate(BaseModel):
     category: str
     price: float
     stock: int
+    default_stock: int | None = None
     brand: str | None = None
     short_description: str | None = None
     description: str | None = None
@@ -74,6 +76,7 @@ class ProductUpdate(BaseModel):
     category: str | None = None
     price: float | None = None
     stock: int | None = None
+    default_stock: int | None = None
     brand: str | None = None
     short_description: str | None = None
     description: str | None = None
@@ -189,7 +192,11 @@ async def admin_create_product(
     if await name_exists(session, body.name):
         raise HTTPException(status_code=409, detail="A product with this name already exists")
 
-    product = await create_product(session, body.model_dump())
+    data = body.model_dump()
+    if data["default_stock"] is None:
+        data["default_stock"] = data["stock"]
+
+    product = await create_product(session, data)
     await _embed_product(session, product)
     await session.refresh(product)
     return _product_to_admin_dict(product)
@@ -318,6 +325,15 @@ async def admin_upload_products(
     }
 
 
+@router.post("/stock-reset")
+async def admin_stock_reset(
+    _admin: dict = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db),
+):
+    count = await reset_all_stock(session)
+    return {"status": "ok", "products_reset": count}
+
+
 def _validate_csv_row(row: dict, row_num: int) -> list[dict]:
     errors = []
     if not row.get("name", "").strip():
@@ -358,12 +374,17 @@ def _validate_csv_row(row: dict, row_num: int) -> list[dict]:
 
 
 def _parse_csv_row(row: dict) -> dict:
+    stock = int(row["stock"].strip())
     data: dict = {
         "name": row["name"].strip(),
         "category": row["category"].strip().lower(),
         "price": float(row["price"].strip()),
-        "stock": int(row["stock"].strip()),
+        "stock": stock,
+        "default_stock": stock,
     }
+    ds_str = row.get("default_stock", "").strip()
+    if ds_str:
+        data["default_stock"] = int(ds_str)
     if row.get("brand", "").strip():
         data["brand"] = row["brand"].strip()
     if row.get("short_description", "").strip():

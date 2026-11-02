@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # Orders
     pending_expiry_minutes: int = 15
 
+    # Rate limiting
+    max_message_length: int = 2000
+    customer_hourly_message_limit: int = 50
+    global_daily_message_limit: int = 50
+
     # Search
     default_search_limit: int = 5
 

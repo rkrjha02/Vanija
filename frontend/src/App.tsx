@@ -159,12 +159,20 @@ export default function App() {
       const reply = await sendMessage(text)
       addMessage(makeMessage('assistant', reply.reply_text, reply.cards))
     } catch (error) {
-      const errorText =
-        error instanceof ApiError && error.status === 0
-          ? 'That took too long. Please try again.'
-          : 'Could not reach the store. Please try again.'
+      let errorText: string
+      if (error instanceof ApiError && error.status === 0) {
+        errorText = 'That took too long. Please try again.'
+      } else if (error instanceof ApiError && error.status === 400) {
+        try {
+          const body = JSON.parse(error.message) as { detail?: string }
+          errorText = body.detail ?? 'Invalid request. Please try again.'
+        } catch {
+          errorText = 'Invalid request. Please try again.'
+        }
+      } else {
+        errorText = 'Could not reach the store. Please try again.'
+      }
       addMessage(makeMessage('assistant', errorText, [], true))
-      // Give the text back so the customer can resend it without retyping.
       setInput((current) => current || text)
     } finally {
       setSending(false)

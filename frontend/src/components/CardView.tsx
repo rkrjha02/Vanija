@@ -2,6 +2,7 @@ import type { ButtonResult, Card } from '../types'
 import { CancelConfirmationCard } from './CancelConfirmationCard'
 import { CartCard } from './CartCard'
 import { OrderConfirmationCard } from './OrderConfirmationCard'
+import { OrderListCard } from './OrderListCard'
 import { OrderResultCard } from './OrderResultCard'
 import { ProductsCard } from './ProductsCard'
 import './cards.css'
@@ -39,6 +40,8 @@ export function CardView({ card, busy, fromHistory, onSendMessage, onButtonResul
           onError={onButtonError}
         />
       )
+    case 'order_list':
+      return <OrderListCard card={card} />
     case 'order_placed':
     case 'order_cancelled':
       return <OrderResultCard card={card} />

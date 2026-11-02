@@ -1,16 +1,33 @@
 import re
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.data.addresses import get_address_for_customer, list_addresses
 from app.data.cart import get_active_cart, get_cart_summary
-from app.data.orders import create_pending, get_order, list_placed_orders
+from app.data.orders import create_pending, get_customer_orders, get_order, list_placed_orders
 
 NEW_ADDRESS_FIELDS = ("delivery_name", "delivery_phone", "address_line", "city", "state", "pincode")
 
 
+def _format_date(dt) -> str:
+    if isinstance(dt, datetime):
+        return f"{dt.day} {dt.strftime('%b %Y')}"
+    return str(dt)
+
+
 def _is_positive_int(value) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 1
+
+
+VALID_ORDER_STATUSES = ("placed", "cancelled")
+
+
+def validate_view_orders(args: dict) -> str | None:
+    status = args.get("status")
+    if status is not None and status not in VALID_ORDER_STATUSES:
+        return f"status must be one of: {', '.join(VALID_ORDER_STATUSES)}"
+    return None
 
 
 def validate_view_saved_addresses(args: dict) -> str | None:
@@ -106,6 +123,35 @@ async def prepare_confirmation(
     }
 
 
+async def handle_view_orders(
+    session: AsyncSession, args: dict, customer_id: str
+) -> dict:
+    orders = await get_customer_orders(
+        session, customer_id, status=args.get("status"),
+    )
+    if not orders:
+        return {"status": "empty", "orders": []}
+    order_cards = []
+    for i, order in enumerate(orders, start=1):
+        order_cards.append({
+            "position": i,
+            "order_id": order["order_id"],
+            "status": order["status"],
+            "date": _format_date(order["created_at"]),
+            "address": order["address_short"],
+            "total": order["total"],
+            "items": order["items"],
+        })
+    return {
+        "status": "success",
+        "orders": order_cards,
+        "_card": {
+            "type": "order_list",
+            "orders": order_cards,
+        },
+    }
+
+
 async def handle_view_saved_addresses(
     session: AsyncSession, args: dict, customer_id: str
 ) -> dict:
@@ -173,6 +219,10 @@ async def handle_cancel_order(
 
 
 TOOL_HANDLERS = {
+    "view_orders": {
+        "validate": validate_view_orders,
+        "handle": handle_view_orders,
+    },
     "view_saved_addresses": {
         "validate": validate_view_saved_addresses,
         "handle": handle_view_saved_addresses,

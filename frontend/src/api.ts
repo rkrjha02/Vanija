@@ -162,8 +162,20 @@ export function getHistory(before?: number): Promise<HistoryPage> {
   return request<HistoryPage>(`/history${query}`, 'GET')
 }
 
-export function sendMessage(message: string): Promise<ChatReply> {
-  return request<ChatReply>('/chat', 'POST', { message })
+export async function sendMessage(message: string): Promise<ChatReply> {
+  try {
+    return await request<ChatReply>('/chat', 'POST', { message })
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) {
+      try {
+        const body = JSON.parse(error.message) as ChatReply
+        return body
+      } catch {
+        // If the body isn't valid JSON, re-throw the original error
+      }
+    }
+    throw error
+  }
 }
 
 export function confirmOrder(

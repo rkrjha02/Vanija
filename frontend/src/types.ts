@@ -79,6 +79,21 @@ export interface CancelConfirmationCard {
   total: number
 }
 
+export interface OrderListItem {
+  position: number
+  order_id: number
+  status: 'placed' | 'cancelled'
+  date: string
+  address: string
+  total: number
+  items: { name: string; quantity: number; price: number }[]
+}
+
+export interface OrderListCard {
+  type: 'order_list'
+  orders: OrderListItem[]
+}
+
 export interface OrderResultCard {
   type: 'order_placed' | 'order_cancelled'
   order_id: number
@@ -93,6 +108,7 @@ export type Card =
   | CartCard
   | OrderConfirmationCard
   | CancelConfirmationCard
+  | OrderListCard
   | OrderResultCard
 
 export interface ChatReply {

@@ -82,6 +82,7 @@ class Product(Base):
     brand: Mapped[str | None] = mapped_column(Text, nullable=True)
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    default_stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     specs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
@@ -101,6 +102,7 @@ class Conversation(Base):
         Text, ForeignKey("customers.id"), nullable=False
     )
     shown_products: Mapped[list | None] = mapped_column(JSONB, default=list)
+    last_search_context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -278,6 +280,32 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class RateLimit(Base):
+    __tablename__ = "rate_limits"
+    __table_args__ = (
+        Index("ix_rate_limits_lookup", "counter_type", "customer_id", "window_start"),
+        CheckConstraint(
+            "counter_type IN ('customer_hourly', 'global_daily')",
+            name="ck_rate_limit_counter_type",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("customers.id"), nullable=True
+    )
+    counter_type: Mapped[str] = mapped_column(Text, nullable=False)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    message_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class PolicyDocument(Base):
